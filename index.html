@@ -13,8 +13,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Early Bird">
-<link rel="preload" href="fonts/archivo-x.woff" as="font" type="font/woff" crossorigin>
-<link rel="stylesheet" href="eb.css?v=5">
+<link rel="preload" href="fonts/bodoni-moda.woff" as="font" type="font/woff" crossorigin>
+<link rel="preload" href="fonts/jost.woff" as="font" type="font/woff" crossorigin>
+<link rel="stylesheet" href="eb.css?v=7">
 </head>
 <body>
 <header class="wrap top">
@@ -89,9 +90,9 @@ const sig=n=>`<span class="sig" aria-hidden="true">${[1,2,3,4,5].map(i=>`<i clas
 function row(c){const ch=EB.chg(c,"h1");
  return `<button class="row v-${c.verdict}" data-coin="${esc(c.mint)}">${avatar(c)}
  <span style="min-width:0"><span class="r1"><b>${esc(c.name||c.sym)}</b><span class="sym">$${esc(c.sym)}</span>${c.isNew?'<span class="nw">New</span>':""}</span>
-  <span class="r2"><span><b>${ageTxt(c.ageH)}</b> old</span><span>MC <b>${money(c.mcap)}</b></span><span>Pool <b>${c.curve?"curve":money(c.liq)}</b></span>${ch!=null?`<span class="${cls(ch)}">${pct(ch)} 1h</span>`:""}</span>
+  <span class="r2"><span><b>${ageTxt(c.ageH)}</b> old</span><span>MC <b>${money(c.mcap)}</b></span><span>Pool <b>${c.curve?"curve":money(c.liq)}</b></span></span>
   <span class="r3"><span class="vw">${VERDICT[c.verdict]}</span>${why(c)}</span></span>
- <span class="rs" aria-label="Early score ${c.score}">${sig(c.score)}<b>${c.score}</b></span></button>`}
+ <span class="rs" aria-label="Early score ${c.score}">${sig(c.score)}<b>${c.score}</b>${ch!=null?`<span class="chg ${cls(ch)}">${pct(ch)} 1h</span>`:""}</span></button>`}
 function skeleton(n=5){return `<div class="rows">${Array.from({length:n},()=>'<div class="ghost"></div>').join("")}</div>`}
 const VR={passed:0,caution:1,unchecked:2,sketchy:3};
 function sortCoins(L){const by={score:(a,b)=>VR[a.verdict]-VR[b.verdict]||b.score-a.score,new:(a,b)=>(a.ageH??1e9)-(b.ageH??1e9),
@@ -154,8 +155,8 @@ function coinBody(c,loading){const w=WATCH.some(x=>x.m===c.mint),b=EB.txB(c,"h1"
  const L=[[safe(c.pairUrl)||`https://dexscreener.com/solana/${c.mint}`,"DEX Screener"],[`https://x.com/search?q=${encodeURIComponent(c.mint)}&f=live`,"What X is saying"],
   [safe(c.x),"Their X"],[safe(c.tg),"Telegram"],[safe(c.web),"Website"],[`https://phantom.com/tokens/solana/${c.mint}`,"Open in Phantom"],[`https://rugcheck.xyz/tokens/${c.mint}`,"RugCheck"],[`https://solscan.io/token/${c.mint}`,"Solscan"]].filter(x=>x[0]);
  const sc=c.score,word=sc>=70?"Early and busy":sc>=50?"Some real action":sc>=30?"Quiet so far":"Barely moving";
- const nm=String(c.name||c.sym||""),lw=Math.max(...nm.split(/\s+/).map(w=>w.length)),fs=lw<=6?26:lw<=8?22:lw<=11?19:16,fw=lw<=8?118:100;   // the longest word has to fit on one line
- return `<div class="cs-top v-${c.verdict}"><div class="sh">${avatar(c)}<div style="min-width:0"><h3 style="font-size:${fs}px;font-stretch:${fw}%">${esc(nm)}</h3>
+ const nm=String(c.name||c.sym||""),lw=Math.max(...nm.split(/\s+/).map(w=>w.length)),fs=lw<=7?30:lw<=10?26:lw<=13?22:18;   // the longest word has to fit on one line
+ return `<div class="cs-top v-${c.verdict}"><div class="sh">${avatar(c)}<div style="min-width:0"><h3 style="font-size:${fs}px">${esc(nm)}</h3>
   <div class="meta"><b>$${esc(c.sym)}</b><span>${ageTxt(c.ageH)} old</span>${c.verified?"<span>Jupiter verified</span>":""}${c.cto?"<span>Community takeover</span>":""}</div></div>
   <span class="stampv">${VERDICT[c.verdict]}</span></div>
  <div class="scorebar">${sig(sc)}<b>${sc}</b><span>Early score. ${word}. It ranks how early and how much real buying, not whether it goes up.</span></div>
