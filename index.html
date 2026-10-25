@@ -1,0 +1,337 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Early Bird</title>
+<meta name="description" content="Brand-new Solana meme coins, checked for the usual scams and ranked by how early they are.">
+<meta name="theme-color" content="#090a1a">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=1">
+<link rel="manifest" href="manifest.webmanifest?v=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Early Bird">
+<link rel="preload" href="fonts/archivo.woff" as="font" type="font/woff" crossorigin>
+<link rel="preload" href="fonts/bebas-neue.woff" as="font" type="font/woff" crossorigin>
+<link rel="stylesheet" href="eb.css?v=2">
+</head>
+<body>
+<header class="wrap top">
+ <div class="brand">
+  <h1 class="mark"><svg viewBox="0 0 64 64" aria-hidden="true"><defs>
+   <linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff2c8"/><stop offset=".55" stop-color="#ffb547"/><stop offset="1" stop-color="#ff6b57"/></linearGradient></defs>
+   <path d="M7 47 A25 25 0 0 1 57 47 Z" fill="url(#sg)"/>
+   <g stroke="#ffb547" stroke-width="3" stroke-linecap="round" opacity=".85"><path d="M32 13v-6"/><path d="M14.5 20.5l-4-4"/><path d="M49.5 20.5l4-4"/></g>
+   <rect x="4" y="49" width="56" height="3.4" rx="1.7" fill="#ffb547"/>
+   <path d="M16 33c5-5.5 10-6 15.4 1.2C36.6 27 41.8 27.6 47.5 33c-5.2-2-9.6-1.2-14 4.6l-2 2.6-2-2.6C25 31.8 20.8 31 16 33z" fill="#16102e" stroke="#fff4dc" stroke-width="1.4" stroke-linejoin="round"/>
+  </svg>Early Bird</h1>
+  <span class="sp"></span><button class="iconbtn" id="openSet">Settings</button>
+ </div>
+ <div class="stamp"><span id="stamp">Looking for coins…</span><button class="iconbtn" id="refresh">Refresh</button></div>
+</header>
+<nav class="tabs"><div class="wrap"><div class="seg" role="tablist">
+ <button data-tab="fresh" role="tab">Fresh</button><button data-tab="hot" role="tab">Hot</button><button data-tab="check" role="tab">Check</button><button data-tab="watch" role="tab">Watch</button><button data-tab="record" role="tab">Record</button>
+</div></div></nav>
+<main class="wrap" id="view"></main>
+<footer class="wrap fine">Not financial advice. The checks catch the common scams, not all of them, and most new coins lose value even when they pass. "Passed" means no common scam signs were found, not that a coin is safe or will go up. Only play with money you can afford to lose. Data from DEX Screener, Jupiter, RugCheck, GeckoTerminal and GoPlus, read straight from your phone.</footer>
+<div id="float"></div>
+
+<dialog id="coin" aria-label="Coin"><div class="sheet" id="coinsheet"></div></dialog>
+<dialog id="set" aria-label="Settings"><div class="sheet set" id="setsheet"></div></dialog>
+<dialog id="buy" aria-label="Log a buy"><div class="sheet" id="buysheet"></div></dialog>
+
+<script src="eb-core.js?v=2"></script>
+<script>
+"use strict";
+/* ---------- basics ---------- */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const LS={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const safe=u=>typeof u==="string"&&/^https?:\/\/[^\s"'<>]+$/i.test(u)?u:null;
+const{money,ageTxt,VERDICT}=EB;
+const pct=(x,d=0)=>x==null||!isFinite(x)?"–":(x>0?"+":"")+(Math.abs(x)>=1000?Math.round(x).toLocaleString():x.toFixed(d))+"%";
+const cls=x=>x==null?"":x>=0?"up":"dn";
+const get=EB.makeGet(u=>fetch(u,{cache:"no-store"}));
+const DEF={maxAgeH:24,maxMcap:2e6,minLiq:5e3,hide:true,auto:true};
+let SET=Object.assign({},DEF,LS.get("eb_set",{}));
+let WATCH=LS.get("eb_watch",[]),BUYS=LS.get("eb_buys",[]),RECENT=LS.get("eb_recent",[]),LIMIT=+LS.get("eb_limit",0)||0;
+const S={tab:LS.get("eb_tab","fresh"),fresh:null,hot:null,busy:{},err:{},sort:LS.get("eb_sort","score"),passedOnly:false,showSk:{},
+ check:{q:"",c:null,busy:false,err:""},charts:{},tf:"8h",quotes:{},qAt:0,qFail:0,hist:null,seen:{},open:null};
+const COINS=new Map();             // every coin looked at this visit, by address
+if(!["fresh","hot","check","watch","record"].includes(S.tab))S.tab="fresh";
+function toast(t){const f=$("#float");f.innerHTML=`<div class="toast" role="status">${esc(t)}</div>`;clearTimeout(toast.t);toast.t=setTimeout(()=>{f.innerHTML=""},2600)}
+const ago=t=>{const s=Math.max(0,Math.round((Date.now()-t)/1000));return s<5?"just now":s<60?s+"s ago":s<3600?Math.round(s/60)+"m ago":Math.round(s/3600)+"h ago"};
+
+/* ---------- finding coins ---------- */
+const scanOpts=(mode,manual)=>Object.assign(mode==="fresh"?{maxAgeH:SET.maxAgeH,maxMcap:SET.maxMcap,minLiq:SET.minLiq}:{},manual?{maxAge:4000}:{});
+async function refresh(mode,manual){if(S.busy[mode])return;S.busy[mode]=true;S.err[mode]="";drawIf(mode);
+ try{const r=await EB.scan(get,mode,scanOpts(mode,manual)),prev=S.seen[mode];
+  for(const c of r.coins){c.isNew=!!prev&&!prev.has(c.mint);const o=COINS.get(c.mint);if(o&&o.gp){c.gp=o.gp;c.checks=EB.checks(c);c.verdict=EB.verdictOf(c.checks,c);c.score=EB.score(c)}COINS.set(c.mint,c)}
+  S.seen[mode]=new Set([...(prev||[]),...r.coins.map(c=>c.mint)]);S[mode]=r;
+  const n=r.coins.filter(c=>c.isNew&&c.verdict==="passed").length;if(n&&S.tab===mode&&prev)toast(`${n} new coin${n>1?"s":""} passed the checks`);
+ }catch(e){S.err[mode]="Couldn't reach the coin data. Check your connection and pull down to try again."}
+ S.busy[mode]=false;drawIf(mode)}
+async function loadQuotes(){const ms=[...new Set([...WATCH.map(w=>w.m),...BUYS.filter(b=>!b.sold).map(b=>b.m)])];if(!ms.length){S.qAt=Date.now();return}
+ S.qBusy=true;try{const{q,failed}=await EB.quotes(get,ms,15000);S.quotes=Object.assign(S.quotes,q);S.qFail=failed;S.qAt=Date.now()}catch(e){}S.qBusy=false;drawIf("watch")}
+async function loadHist(){try{const r=await fetch("history.json",{cache:"no-store"});S.hist=r.ok?await r.json():{rows:[]}}catch(e){S.hist={rows:[]}}drawIf("record")}
+
+/* ---------- pieces ---------- */
+// DEX Screener's image server won't show its pictures on other sites, so those go through a free image proxy
+const iconUrl=u=>{u=safe(u);if(!u)return null;return/\/\/cdn\.dexscreener\.com\//.test(u)?`https://wsrv.nl/?url=${encodeURIComponent(u)}&w=96&h=96&fit=cover`:u};
+function avatar(c){const u=iconUrl(c.icon);return `<span class="ci">${esc(((c.sym||c.name||"?").replace(/^\$/,"")[0]||"?").toUpperCase())}${u?`<img src="${esc(u)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:""}</span>`}
+const bad=c=>(c.checks||[]).filter(f=>f.level==="bad"),warns=c=>(c.checks||[]).filter(f=>f.level==="warn");
+function why(c){const B=bad(c),W=warns(c);
+ if(B.length)return B.slice(0,2).map(f=>`<span class="x">✕</span> ${esc(f.t)}`).join(" · ");
+ if(W.length)return W.slice(0,2).map(f=>`<span class="w">!</span> ${esc(f.t)}`).join(" · ");
+ const G=(c.checks||[]).filter(f=>f.level==="ok"&&["lp","holders","bots","sell"].includes(f.k));
+ return G.slice(0,2).map(f=>`<span class="o">✓</span> ${esc(f.t)}`).join(" · ")}
+function row(c,extra){const b=EB.txB(c,"h1"),s=EB.txS(c,"h1"),bp=b!=null&&s!=null&&b+s>0?b/(b+s):null,ch=EB.chg(c,"h1");
+ return `<button class="coin v-${c.verdict}" data-coin="${esc(c.mint)}">${c.isNew?'<span class="new">NEW</span>':""}${avatar(c)}
+ <span class="cm"><span class="nm"><b>${esc(c.name||c.sym)}</b><small>$${esc(c.sym)} · ${ageTxt(c.ageH)}</small></span>
+  <span class="st"><span>MC <b>${money(c.mcap)}</b></span><span>Pool <b>${c.curve?"curve":money(c.liq)}</b></span>${ch!=null?`<span>1h <b class="${cls(ch)}">${pct(ch)}</b></span>`:""}${c.holders!=null?`<span><b>${c.holders.toLocaleString()}</b> holders</span>`:""}</span>
+  ${bp!=null?`<span class="bs" aria-label="${Math.round(bp*100)}% buys in the last hour"><i style="width:${(bp*100).toFixed(0)}%"></i></span>`:""}
+  <span class="why">${why(c)}</span>${extra||""}</span>
+ <span class="cr"><span class="vd ${c.verdict}">${VERDICT[c.verdict]}</span><span class="ring" style="--v:${c.score}" aria-label="Early score ${c.score}"><b>${c.score}</b></span></span></button>`}
+function skeleton(n=5){return `<div class="list">${Array.from({length:n},()=>`<div class="coin" style="height:96px;opacity:.5"><span class="ci"></span><span></span><span></span></div>`).join("")}</div>`}
+const VR={passed:0,caution:1,unchecked:2,sketchy:3};
+function sortCoins(L){const by={score:(a,b)=>VR[a.verdict]-VR[b.verdict]||b.score-a.score,new:(a,b)=>(a.ageH??1e9)-(b.ageH??1e9),
+ move:(a,b)=>(EB.chg(b,"h1")??-1e9)-(EB.chg(a,"h1")??-1e9),mcap:(a,b)=>(a.mcap??1e18)-(b.mcap??1e18)}[S.sort]||((a,b)=>b.score-a.score);return L.slice().sort(by)}
+
+/* ---------- Fresh and Hot ---------- */
+function listView(mode){const r=S[mode];
+ let h=mode==="fresh"?`<h2>Fresh launches</h2><p class="lede">Solana coins under ${ageTxt(SET.maxAgeH)} old and under ${money(SET.maxMcap)}, checked for the usual scams and ranked by Early score: how early it is, how much real buying there is, and whether it looks like a real launch. A high score doesn't mean it will go up.</p>`
+  :`<h2>Hot right now</h2><p class="lede">Coins up to a week old that are trending this hour or have the most real traders, checked the same way. Later than Fresh, but with more proof that people are actually buying.</p>`;
+ if(!r)return h+(S.err[mode]?`<div class="card empty">${esc(S.err[mode])}</div>`:skeleton());
+ const all=r.coins,cnt=k=>all.filter(c=>c.verdict===k).length,sk=cnt("sketchy");
+ h+=`<div class="filters">${[["score","Early score"],["new","Newest"],["move","Movers"],["mcap","Smallest"]].map(([k,l])=>`<button class="pill ${S.sort===k?"on":""}" data-sort="${k}">${l}</button>`).join("")}<button class="pill ${S.passedOnly?"on":""}" data-passed>Passed only</button></div>`;
+ let L=all.filter(c=>c.verdict!=="sketchy"||!SET.hide||S.showSk[mode]);if(S.passedOnly)L=L.filter(c=>c.verdict==="passed");L=sortCoins(L);
+ h+=`<div class="bar"><span><b>${all.length}</b> coins · <span class="up">${cnt("passed")} passed</span> · ${cnt("caution")} caution · ${sk} sketchy</span>${S.busy[mode]?'<i class="spin" aria-label="Updating"></i>':""}</div>`;
+ h+=L.length?`<div class="list">${L.map(c=>row(c)).join("")}</div>`:`<div class="card empty">${all.length?"Nothing here passed every check right now. Turn off Passed only to see the rest.":mode==="fresh"?"No coins fit your settings right now. Try a longer age or a bigger market cap in Settings.":"Nothing is trending that fits right now."}</div>`;
+ if(SET.hide&&sk&&!S.passedOnly)h+=`<button class="btn wide" style="margin-top:10px" data-showsk="${mode}">${S.showSk[mode]?"Hide":"Show"} ${sk} sketchy coin${sk>1?"s":""}</button>`;
+ if(r.fails.length)h+=`<p class="fine">Some sources didn't answer this time, so the list may be short. It tries again on the next refresh.</p>`;
+ return h}
+
+/* ---------- one coin ---------- */
+function likeLine(c){const R=(S.hist&&S.hist.rows)||[];if(!R.length)return"";
+ const lo=Math.max(0,c.score-12),hi=Math.min(99,c.score+12),k=R.filter(x=>x.c24).length>=40?"c24":"c6",lab=k==="c24"?"24 hours":"6 hours";
+ const M=R.filter(x=>x.v===c.verdict&&x.sc>=lo&&x.sc<=hi&&x[k]);
+ if(M.length<15)return `<div class="like">Not enough coins like this in Early Bird's record yet to say how they usually do. <span class="fine">(${M.length} so far)</span></div>`;
+ const up=M.filter(x=>x[k][0]>0).length/M.length,dbl=M.filter(x=>x[k][0]>=1).length/M.length,dead=M.filter(x=>x[k][0]<=-.9||(x[k][1]!=null&&x[k][1]<.2)).length/M.length;
+ return `<div class="like">Coins like this in the record (${VERDICT[c.verdict]}, Early score ${lo}–${hi}, ${M.length} coins): <b>${Math.round(up*100)}%</b> were up ${lab} later, <b>${Math.round(dbl*100)}%</b> doubled, <b>${Math.round(dead*100)}%</b> died. Past results don't promise future ones.</div>`}
+function coinBody(c,loading){const w=WATCH.some(x=>x.m===c.mint),b=EB.txB(c,"h1"),s=EB.txS(c,"h1"),v=EB.vol(c,"h1"),hc=c.st&&c.st.h1?c.st.h1.holderChange:null;
+ const stat=(l,val,sub)=>`<div class="st2"><small>${l}</small><b>${val}</b>${sub||""}</div>`;
+ const chs=["m5","h1","h6","h24"].map(k=>[k,EB.chg(c,k)]);
+ const L=[[`https://jup.ag/swap/SOL-${c.mint}`,"Buy on Jupiter",1],[`https://phantom.com/tokens/solana/${c.mint}`,"Open in Phantom"],
+  [safe(c.pairUrl)||`https://dexscreener.com/solana/${c.mint}`,"DEX Screener"],[`https://x.com/search?q=${encodeURIComponent(c.mint)}&f=live`,"What X is saying"],
+  [safe(c.x),"Their X"],[safe(c.tg),"Telegram"],[safe(c.web),"Website"],[`https://rugcheck.xyz/tokens/${c.mint}`,"RugCheck"],[`https://solscan.io/token/${c.mint}`,"Solscan"]].filter(x=>x[0]);
+ return `<div class="cs-top"><div class="shead">${avatar(c)}<div style="min-width:0"><h3>${esc(c.name||c.sym)}</h3><small>$${esc(c.sym)} · ${ageTxt(c.ageH)} old${c.verified?" · Jupiter verified":""}${c.cto?" · community takeover":""}</small></div>
+  <div class="cr"><span class="vd ${c.verdict}">${VERDICT[c.verdict]}</span><span class="ring" style="--v:${c.score}"><b>${c.score}</b></span></div></div>
+ <div class="ca"><span>${esc(c.mint)}</span><button class="btn" data-copy="${esc(c.mint)}">Copy</button></div>
+ </div><div class="chartbox" data-mint="${esc(c.mint)}">${chartHTML(c)}</div><div class="cs-rest">
+ <div class="grid">${stat("Market cap",money(c.mcap))}${stat("Pool",c.curve?"Launch curve":money(c.liq))}${stat("Holders",c.holders!=null?c.holders.toLocaleString():"–",hc!=null?`<em class="${cls(hc)}">${pct(hc)} 1h</em>`:"")}${stat("Top 10 wallets",c.top10!=null?c.top10.toFixed(0)+"%":"–")}
+  ${stat("Creator holds",c.devPct!=null?(c.devPct<.1?"~0%":c.devPct.toFixed(1)+"%"):"–")}${stat("Buys / sells 1h",b!=null?`${b.toLocaleString()} / ${(s||0).toLocaleString()}`:"–")}${stat("Volume 1h",money(v))}${stat("Real traders",c.organicLabel?c.organicLabel[0].toUpperCase()+c.organicLabel.slice(1):"–")}</div>
+ <div class="chg4">${chs.map(([k,x])=>`<span>${k.slice(1)}${k[0]} <b class="${cls(x)}">${pct(x)}</b></span>`).join("")}</div>
+ <h3>Scam checks${loading?' <i class="spin" style="width:12px;height:12px"></i>':""}</h3>
+ <div class="checks">${(c.checks||[]).filter(f=>f.level!=="na"||!loading).map(f=>`<div class="ck ${f.level}"><span class="ic">${{ok:"✓",warn:"!",bad:"✕",info:"i",na:"?"}[f.level]}</span><span><b>${esc(f.t)}</b>${f.d?`<small>${esc(f.d)}</small>`:""}</span></div>`).join("")}</div>
+ ${c.rc&&c.rc.norm!=null?`<p class="fine">RugCheck risk score ${Math.round(c.rc.norm)} out of 100 (lower is better).</p>`:""}
+ ${likeLine(c)}
+ <div class="links">${L.map(([u,l,go])=>`<a class="btn ${go?"go":""}" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${l}</a>`).join("")}</div>
+ <div class="btns"><button class="btn" data-watch="${esc(c.mint)}">${w?"★ Watching":"☆ Watch"}</button><button class="btn" data-logbuy="${esc(c.mint)}">+ I bought this</button></div></div>`}
+/* the price chart: GeckoTerminal's free candles, drawn here */
+const TF={"8h":["minute",5],"1d":["minute",15],"4d":["hour",1]};
+function priceTxt(p){if(p==null||!isFinite(p))return"–";if(p>=1)return"$"+p.toFixed(p>=100?0:2);if(p>=1e-4)return"$"+p.toPrecision(3);
+ const z=Math.floor(-Math.log10(p)),sig=Math.round(p*Math.pow(10,z+3));return`$0.0<sub>${z}</sub>${String(sig).slice(0,3)}`}
+const dxUrl=c=>safe(c.pairUrl)||`https://dexscreener.com/solana/${c.mint}`;
+function chartHTML(c){const k=c.pair&&S.charts[c.pair+"|"+S.tf];
+ const pills=`<div class="tfs">${Object.keys(TF).map(t=>`<button class="pill ${S.tf===t?"on":""}" data-tf="${t}">${t}</button>`).join("")}<a class="pill" href="${esc(dxUrl(c))}" target="_blank" rel="noopener noreferrer" style="margin-left:auto;text-decoration:none">Full chart</a></div>`;
+ if(!c.pair)return pills+`<div class="chartmsg">No trading pool yet, so there's no chart.</div>`;
+ if(!k||k.busy)return pills+`<div class="chartmsg"><i class="spin"></i></div>`;
+ if(k.err||!k.L||k.L.length<3)return pills+`<div class="chartmsg">No chart for this one yet. Tap Full chart to see it on DEX Screener.</div>`;
+ const L=k.L,W=360,H=176,B=26,cs=L.map(x=>+x[4]),hs=L.map(x=>+x[2]),ls=L.map(x=>+x[3]),vs=L.map(x=>+x[5]||0);
+ const hi=Math.max(...hs),lo=Math.min(...ls),vm=Math.max(...vs)||1,X=i=>i*W/(L.length-1),Y=p=>6+(H-B-12)*(1-(p-lo)/((hi-lo)||1));
+ const up=cs[cs.length-1]>=cs[0],col=up?"#3ddc97":"#ff5a6a",ch=(cs[cs.length-1]/cs[0]-1)*100,id="cg"+(++chartHTML.n);
+ const line=cs.map((p,i)=>`${i?"L":"M"}${X(i).toFixed(1)} ${Y(p).toFixed(1)}`).join(""),bw=Math.max(1,W/L.length-1);
+ return pills+`<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Price over ${S.tf}, ${pct(ch)}"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".32"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
+  <g fill="#9d9ac8" opacity=".28">${vs.map((v,i)=>`<rect x="${(X(i)-bw/2).toFixed(1)}" y="${(H-v/vm*(B-4)).toFixed(1)}" width="${bw.toFixed(1)}" height="${(v/vm*(B-4)).toFixed(1)}"/>`).join("")}</g>
+  <path d="${line}L${W} ${H-B}L0 ${H-B}Z" fill="url(#${id})"/><path d="${line}" fill="none" stroke="${col}" stroke-width="2.2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>
+  <div class="chartfoot"><span>Low ${priceTxt(lo)}</span><b class="${cls(ch)}">${pct(ch)} over ${S.tf}</b><span>High ${priceTxt(hi)}</span></div>`}
+chartHTML.n=0;
+function paintChart(c){document.querySelectorAll(`.chartbox[data-mint="${CSS.escape(c.mint)}"]`).forEach(el=>{el.innerHTML=chartHTML(c)})}
+async function loadChart(c){if(!c||!c.pair)return;const tf=S.tf,key=c.pair+"|"+tf,o=S.charts[key];if(o&&(o.busy||Date.now()-o.t<60000)){paintChart(c);return}
+ S.charts[key]={t:Date.now(),busy:true};paintChart(c);const[u,a]=TF[tf];
+ try{const d=await get(`https://api.geckoterminal.com/api/v2/networks/solana/pools/${encodeURIComponent(c.pair)}/ohlcv/${u}?aggregate=${a}&limit=96&currency=usd`,60000);
+  S.charts[key]={t:Date.now(),L:(((d.data||{}).attributes||{}).ohlcv_list||[]).slice().reverse()}}catch(e){S.charts[key]={t:Date.now(),err:true}}
+ paintChart(c)}
+function drawSheet(c,loading){const el=$("#coinsheet");
+ if(!c){el.innerHTML=loading?`<div class="empty"><i class="spin"></i> Checking the coin…</div>`:`<div class="empty">Couldn't find that coin on any Solana trading pool.</div><div class="btns"><button class="btn" data-close>Close</button></div>`;return}
+ const top=el.scrollTop;el.innerHTML=coinBody(c,loading)+`<div class="btns"><button class="btn" data-close>Close</button></div>`;el.scrollTop=top;loadChart(c)}
+async function openCoin(mint){const c=COINS.get(mint)||null;S.open=mint;drawSheet(c,true);const d=$("#coin");if(!d.open)d.showModal();
+ try{const full=c?await EB.enrich(get,c):await EB.checkOne(get,mint);   // a coin from a list keeps its data and gets the extra checks
+  if(full){COINS.set(full.mint,full);
+   for(const m of ["fresh","hot"]){const r=S[m];if(r){const i=r.coins.findIndex(x=>x.mint===full.mint);if(i>=0)r.coins[i]=full}}
+   if(S.check.c&&S.check.c.mint===full.mint)S.check.c=full}
+  if(S.open===mint)drawSheet(full||c,false)}catch(e){if(S.open===mint)drawSheet(c,false)}}
+
+/* ---------- Check ---------- */
+async function doCheck(){const q=($("#ckq")||{}).value||S.check.q;S.check.q=q.trim();if(!S.check.q)return;
+ if(!EB.parseInput(S.check.q)){S.check.err="That doesn't look like a Solana coin address or link.";S.check.c=null;draw();return}
+ S.check.busy=true;S.check.err="";draw();
+ try{const c=await EB.checkOne(get,S.check.q);if(c){S.check.c=c;COINS.set(c.mint,c);RECENT=[{m:c.mint,s:c.sym,n:c.name,icon:c.icon,v:c.verdict,sc:c.score,t:Date.now()},...RECENT.filter(x=>x.m!==c.mint)].slice(0,8);LS.set("eb_recent",RECENT)}
+  else{S.check.c=null;S.check.err="Couldn't find that coin on any Solana trading pool. It may not have launched yet, or it's on another chain."}}
+ catch(e){S.check.err="Couldn't reach the coin data. Try again in a moment."}
+ S.check.busy=false;draw()}
+function checkView(){const k=S.check;
+ return `<h2>Check a coin</h2><p class="lede">Saw a coin on X or in a group chat? Paste its address or any link to it (DEX Screener, pump.fun, Jupiter, Solscan, RugCheck…) and get the full check before you buy.</p>
+ <div class="askrow"><input id="ckq" placeholder="Paste a coin address or link" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" value="${esc(k.q)}"><button class="btn" data-paste>Paste</button></div>
+ <button class="btn go wide" style="margin-top:8px" data-docheck ${k.busy?"disabled":""}>${k.busy?'<i class="spin"></i> Checking…':"Check it"}</button>
+ ${k.err?`<div class="card empty" style="margin-top:10px">${esc(k.err)}</div>`:""}
+ ${k.c?`<div class="card" style="margin-top:12px">${coinBody(k.c)}</div>`:""}
+ ${RECENT.length&&!k.c?`<h3>Recently checked</h3><div class="list">${RECENT.map(x=>`<button class="coin v-${esc(x.v)}" data-coin="${esc(x.m)}">${avatar({icon:x.icon,sym:x.s})}<span class="cm"><span class="nm"><b>${esc(x.n||x.s)}</b><small>$${esc(x.s)} · checked ${ago(x.t)}</small></span></span><span class="cr"><span class="vd ${esc(x.v)}">${VERDICT[x.v]||""}</span></span></button>`).join("")}</div>`:""}`}
+
+/* ---------- Watch: watchlist, buys and the weekly limit ---------- */
+function weekStart(){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return d.getTime()}
+const spentWeek=()=>BUYS.filter(b=>b.t>=weekStart()).reduce((a,b)=>a+(+b.usd||0),0);
+function posOf(b){const q=S.quotes[b.m];if(b.sold)return{val:+b.sold.usd,pl:+b.sold.usd-b.usd,done:true};
+ if(!q||!q.price||!b.p)return{val:null,pl:null,gone:!!S.qAt&&!S.qFail&&!q};const val=b.usd*q.price/b.p;return{val,pl:val-b.usd}}
+function alertsOf(w){const q=S.quotes[w.m];if(!S.qAt||S.qFail)return null;
+ if(!q)return"Its trading pool is gone. That usually means the creator pulled the money (a rug pull).";
+ if(w.lq&&q.liq<w.lq*.5)return`Its pool dropped ${Math.round((1-q.liq/w.lq)*100)}% since you added it. That can be a rug pull starting.`;return null}
+const hasAlerts=()=>WATCH.some(w=>alertsOf(w))||BUYS.some(b=>!b.sold&&alertsOf(b));
+function watchView(){const open=BUYS.filter(b=>!b.sold),done=BUYS.filter(b=>b.sold);
+ let h=`<h2>Watch</h2><p class="lede">Coins you're watching and the ones you bought, with live prices. If a pool suddenly drains, you'll see it here.</p>`;
+ if(LIMIT>0){const sp=spentWeek(),over=sp>LIMIT;
+  h+=`<div class="card"><div class="tot"><span>This week's play money</span><b>${money(sp)} <small style="font:600 14px var(--fb);color:var(--mute)">of ${money(LIMIT)}</small></b></div><div class="meter"><i style="width:${Math.min(100,sp/LIMIT*100).toFixed(0)}%"></i></div>
+   ${over?`<div class="alert"><b>You're past the limit you set for this week.</b> The coins will still be there next week.</div>`:""}</div>`}
+ if(open.length||done.length){const tv=open.reduce((a,b)=>{const p=posOf(b);return p.val!=null?a+p.val:a},0),tc=open.reduce((a,b)=>a+b.usd,0),rl=done.reduce((a,b)=>a+(posOf(b).pl||0),0);
+  h+=`<h3>My buys</h3><div class="card"><div class="tot"><span>Open now</span><b class="${cls(tv-tc)}">${money(tv)}</b></div><p class="fine" style="margin:4px 0 0">Put in ${money(tc)} · ${tv-tc>=0?"up":"down"} ${money(Math.abs(tv-tc))}${done.length?` · sold ones ${rl>=0?"made":"lost"} ${money(Math.abs(rl))}`:""}</p></div><div class="list" style="margin-top:8px">`;
+  for(const b of [...open,...done]){const p=posOf(b),al=!b.sold&&alertsOf(b);
+   h+=`<div class="card pos"><div><b>${esc(b.n||b.s)}</b> <small>$${esc(b.s)}</small><br><small>${money(b.usd)} in · ${new Date(b.t).toLocaleDateString([],{month:"short",day:"numeric"})}${b.sold?` · sold for ${money(b.sold.usd)}`:""}</small></div>
+    <div class="pl ${cls(p.pl)}">${p.pl==null?(p.gone?"Gone":"–"):(p.pl>=0?"+":"-")+money(Math.abs(p.pl))}<br><small style="font:600 12px var(--fb)">${p.val!=null&&!b.sold?"worth "+money(p.val):b.sold?"done":""}</small></div>
+    ${al?`<div class="alert" style="grid-column:1/-1;margin:0"><b>Heads up:</b> ${esc(al)}</div>`:""}
+    <div class="acts"><button class="btn" data-coin="${esc(b.m)}">Check</button>${b.sold?"":`<button class="btn" data-sold="${esc(b.id)}">I sold</button>`}<button class="btn" data-delbuy="${esc(b.id)}">Remove</button></div></div>`}
+  h+=`</div>`}
+ h+=`<h3>Watchlist</h3>`;
+ if(!WATCH.length)h+=`<div class="card empty">Tap ☆ Watch on any coin to keep an eye on it here.</div>`;
+ else h+=`<div class="list">${WATCH.map(w=>{const q=S.quotes[w.m],ch=q&&q.price&&w.p?(q.price/w.p-1)*100:null,al=alertsOf(w);
+  return `<button class="coin" data-coin="${esc(w.m)}">${avatar({icon:w.icon,sym:w.s})}<span class="cm"><span class="nm"><b>${esc(w.n||w.s)}</b><small>$${esc(w.s)} · added ${ago(w.t)}</small></span>
+   <span class="st"><span>MC <b>${money(q?q.mcap:w.mc)}</b></span><span>Pool <b>${q&&q.curve?"curve":money(q?q.liq:w.lq)}</b></span>${q&&q.ch&&q.ch.h1!=null?`<span>1h <b class="${cls(q.ch.h1)}">${pct(q.ch.h1)}</b></span>`:""}</span>
+   ${al?`<span class="why"><span class="x">✕</span> ${esc(al)}</span>`:""}</span>
+   <span class="cr"><small style="color:var(--mute);font-size:11px">since added</small><b class="${cls(ch)}" style="font:400 22px/1 var(--fh)">${ch==null?"–":pct(ch)}</b></span></button>`}).join("")}</div>`;
+ h+=`<p class="fine">${S.qAt?`Prices from DEX Screener, ${ago(S.qAt)}. They update every 30 seconds while you're here.`:"Loading prices…"}</p>`;
+ return h}
+function toggleWatch(m){const i=WATCH.findIndex(w=>w.m===m);if(i>=0){WATCH.splice(i,1);toast("Removed from your watchlist")}
+ else{const c=COINS.get(m);if(!c)return;WATCH.unshift({m,s:c.sym,n:c.name,icon:c.icon,t:Date.now(),p:c.price,mc:c.mcap,lq:c.liq});toast("Added to your watchlist");loadQuotes()}
+ LS.set("eb_watch",WATCH)}
+function buySheet(m){const c=COINS.get(m);if(!c)return;S.buyFor=m;
+ $("#buysheet").innerHTML=`<h3>I bought ${esc(c.name||c.sym)}</h3><p class="fine">Log it here to track how it's doing. This doesn't buy anything; it just keeps score.</p>
+ <label class="fld">How much I put in ($)<input id="buyusd" type="number" inputmode="decimal" min="0" step="any" placeholder="10"></label>
+ <label class="fld">Price I got (leave as is if you just bought)<input id="buyp" type="number" inputmode="decimal" min="0" step="any" value="${c.price||""}"></label>
+ ${LIMIT>0?`<p class="fine">This week so far: ${money(spentWeek())} of your ${money(LIMIT)} limit.</p>`:""}
+ <div class="btns"><button class="btn" data-close>Cancel</button><button class="btn go" data-savebuy>Save</button></div>`;
+ $("#buy").showModal()}
+function soldSheet(id){const b=BUYS.find(x=>x.id===id);if(!b)return;S.soldFor=id;
+ $("#buysheet").innerHTML=`<h3>I sold ${esc(b.n||b.s)}</h3><label class="fld">How much I got back ($)<input id="soldusd" type="number" inputmode="decimal" min="0" step="any" value="${(()=>{const p=posOf(b);return p.val!=null?p.val.toFixed(2):""})()}"></label>
+ <div class="btns"><button class="btn" data-close>Cancel</button><button class="btn go" data-savesold>Save</button></div>`;$("#buy").showModal()}
+
+/* ---------- Record: how Early Bird's picks really did ---------- */
+function stats(R,k){const X=R.filter(x=>x[k]);const n=X.length;if(!n)return null;const xs=X.map(x=>x[k][0]).sort((a,b)=>a-b);
+ return{n,up:X.filter(x=>x[k][0]>0).length/n,dbl:X.filter(x=>x[k][0]>=1).length/n,dead:X.filter(x=>x[k][0]<=-.9||(x[k][1]!=null&&x[k][1]<.2)).length/n,med:xs[Math.floor((n-1)/2)]}}
+function recordView(){const H=S.hist;let h=`<h2>The record</h2><p class="lede">Every hour Early Bird writes down what the Fresh list showed, Sketchy coins included, then checks each coin again 1, 6 and 24 hours later. This is how each kind of coin really did, so you can see if the checks help.</p>`;
+ if(!H)return h+skeleton(3);const R=H.rows||[];
+ const n24=R.filter(x=>x.c24).length,n6=R.filter(x=>x.c6).length,k=n24>=30?"c24":n6>=30?"c6":"c1",lab={c24:"24 hours",c6:"6 hours",c1:"1 hour"}[k];
+ h+=`<div class="card"><div class="rhd"><b>${R.length.toLocaleString()} coins on record</b><small>${H.updated?"updated "+ago(H.updated):""}</small></div><p class="fine" style="margin:6px 0 0">${n24} have their 24-hour result, ${n6} their 6-hour result.${n24<30?" The full picture builds up over the first few days.":""}</p></div>`;
+ const G=[["passed","Passed"],["caution","Caution"],["sketchy","Sketchy"]].map(([v,l])=>[l,v,stats(R.filter(x=>x.v===v),k)]);
+ if(!G.some(g=>g[2])){return h+`<div class="card empty">The first results land an hour after the tracker's first run. Check back soon.</div>`}
+ h+=`<h3>After ${lab}, by verdict</h3><div class="card"><table class="rtab"><tr><th></th><th>Coins</th><th>Up</th><th>Doubled</th><th>Died</th><th>Typical</th></tr>
+  ${G.map(([l,v,s])=>`<tr><td><span class="vd ${v}">${l}</span></td>${s?`<td>${s.n}</td><td>${Math.round(s.up*100)}%</td><td>${Math.round(s.dbl*100)}%</td><td>${Math.round(s.dead*100)}%</td><td class="${cls(s.med)}">${pct(s.med*100)}</td>`:`<td colspan="5" style="color:var(--mute)">none yet</td>`}</tr>`).join("")}</table>
+  <p class="fine">"Died" means the price fell 90% or more, or the pool lost 80% of its money. "Typical" is the middle coin's move.</p></div>`;
+ const P=R.filter(x=>(x.v==="passed"||x.v==="caution")&&x[k]).sort((a,b)=>b.sc-a.sc);
+ if(P.length>=12){const t=Math.ceil(P.length/3),top=stats(P.slice(0,t),k),rest=stats(P.slice(t),k);
+  h+=`<h3>Does the Early score help?</h3><div class="card"><div class="rgrid" style="grid-template-columns:1fr 1fr">
+   <div class="rbox"><small>Top third of scores</small><b>${Math.round(top.up*100)}% up</b><small>${Math.round(top.dbl*100)}% doubled · ${Math.round(top.dead*100)}% died</small></div>
+   <div class="rbox"><small>The rest</small><b>${Math.round(rest.up*100)}% up</b><small>${Math.round(rest.dbl*100)}% doubled · ${Math.round(rest.dead*100)}% died</small></div></div>
+   <p class="fine">Passed and Caution coins after ${lab}. ${top.up>rest.up+.05?"So far the higher scores have done better.":top.up<rest.up-.05?"So far the higher scores have done worse, so don't lean on the score.":"So far the score hasn't made much difference."} With this few coins, luck plays a big part.</p></div>`}
+ const B=R.filter(x=>x[k]&&x.v!=="sketchy").sort((a,b)=>b[k][0]-a[k][0]);
+ if(B.length>=5){h+=`<h3>Best and worst calls</h3><div class="card">${[...B.slice(0,4),...B.slice(-3).reverse()].map(x=>`<div class="mini"><span><span class="vd ${x.v}">${VERDICT[x.v]}</span> <b>$${esc(x.s)}</b> <small style="color:var(--mute)">score ${x.sc}</small></span><b class="${cls(x[k][0])}">${pct(x[k][0]*100)}</b></div>`).join("")}</div>`}
+ h+=`<p class="fine">Prices are from DEX Screener at each check. Past results don't promise future ones, and meme coins can swing either way in minutes.</p>`;
+ return h}
+
+/* ---------- settings ---------- */
+function drawSet(){const pill=(k,v,l)=>`<button class="pill ${SET[k]===v?"on":""}" data-set="${k}" data-val='${JSON.stringify(v)}'>${l}</button>`;
+ $("#setsheet").innerHTML=`<h3>Settings</h3>
+ <h4>How early (Fresh)</h4><div class="filters">${[[1,"1 hour"],[6,"6 hours"],[24,"24 hours"],[72,"3 days"]].map(([v,l])=>pill("maxAgeH",v,l)).join("")}</div>
+ <h4>Biggest market cap (Fresh)</h4><div class="filters">${[[25e4,"$250K"],[1e6,"$1M"],[2e6,"$2M"],[1e7,"$10M"]].map(([v,l])=>pill("maxMcap",v,l)).join("")}</div>
+ <h4>Smallest pool (Fresh)</h4><div class="filters">${[[2e3,"$2K"],[5e3,"$5K"],[1e4,"$10K"],[25e3,"$25K"]].map(([v,l])=>pill("minLiq",v,l)).join("")}</div>
+ <h4>Sketchy coins</h4><div class="filters">${pill("hide",true,"Hide them")}${pill("hide",false,"Show at the bottom")}</div>
+ <h4>Refresh by itself</h4><div class="filters">${pill("auto",true,"Every minute")}${pill("auto",false,"Only when I ask")}</div>
+ <h4>Weekly play money</h4><label class="fld">The most I'll put in per week ($, leave empty for no limit)<input id="limin" type="number" inputmode="decimal" min="0" step="any" value="${LIMIT||""}"></label>
+ <h4>Backup</h4><div class="btns"><button class="btn" data-backup>Save a backup</button><button class="btn" data-restore>Restore</button></div><p class="fine">One file with your watchlist, buys and settings, plus your sports sites' tickets.</p>
+ <h4>How the checks work</h4><p class="fine">Each coin is checked for the common ways new coins take people's money: the creator can still make more coins or freeze yours, the pool money isn't locked (so it can be pulled), a few wallets or the creator hold most of the supply, the creator has rugged before, nobody can sell, there are hidden transfer fees or hooks, the pool is tiny, or the trading is mostly bots. Any of the serious ones makes it Sketchy; smaller worries make it Caution.</p>
+ <p class="fine">The Early score (0–99) ranks how early a coin is (age and market cap), how much real buying is happening (buyers vs sellers, new holders, volume), how real the traders are, and whether it has socials. The Record tab shows whether high scores have actually done better.</p>
+ <div class="btns"><button class="btn go" data-close>Done</button></div>`}
+
+/* ---------- drawing ---------- */
+function stampText(){const el=$("#stamp");if(!el)return;const t=S.tab,r=S[t];
+ el.innerHTML=(t==="fresh"||t==="hot")?(S.busy[t]&&!r?"Looking for coins…":r?`Updated <b>${ago(r.at)}</b>${SET.auto?" · every minute":""}`:"")
+  :t==="watch"?(S.qAt?`Prices <b>${ago(S.qAt)}</b>`:"Loading prices…"):t==="record"?(S.hist&&S.hist.updated?`Record updated <b>${ago(S.hist.updated)}</b>`:"Early Bird's track record"):"Paste any coin to check it"}
+function markTabs(){const al=hasAlerts();document.querySelectorAll(".seg button").forEach(b=>{b.classList.toggle("on",b.dataset.tab===S.tab);b.setAttribute("aria-selected",b.dataset.tab===S.tab);
+  const dot=b.dataset.tab==="watch"&&al;if(dot&&!b.querySelector(".dot"))b.insertAdjacentHTML("beforeend",'<i class="dot"></i>');if(!dot)b.querySelectorAll(".dot").forEach(x=>x.remove())})}
+function draw(){const v=$("#view"),a=document.activeElement,typing=a&&a.id==="ckq",sel=typing?[a.selectionStart,a.selectionEnd]:null;
+ if(typing)S.check.q=a.value;
+ markTabs();
+ v.innerHTML=S.tab==="fresh"||S.tab==="hot"?listView(S.tab):S.tab==="check"?checkView():S.tab==="watch"?watchView():recordView();
+ stampText();if(S.tab==="check"&&S.check.c)loadChart(S.check.c);
+ if(typing){const i=$("#ckq");if(i){i.focus();try{i.setSelectionRange(sel[0],sel[1])}catch(e){}}}}
+function drawIf(tab){if(S.tab===tab)draw();else{stampText();markTabs()}}
+function go(tab){S.tab=tab;LS.set("eb_tab",tab);draw();window.scrollTo(0,0);tick(true)}
+function tick(now){if(document.hidden)return;const t=S.tab;
+ if(t==="fresh"||t==="hot"){const r=S[t],age=r?Date.now()-r.at:1e12;
+  // refresh by itself while you're near the top of the list; scrolled down, it waits so the list doesn't jump under your finger
+  if(!r||(SET.auto&&age>(t==="fresh"?60000:120000)&&window.scrollY<200&&!document.querySelector("dialog[open]")))refresh(t)}
+ if(t==="watch"&&(now||Date.now()-S.qAt>30000))loadQuotes();
+ if(t==="record"&&(!S.hist||now))loadHist();
+ stampText()}
+setInterval(tick,5000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden)tick()});
+
+/* ---------- taps ---------- */
+document.addEventListener("click",async e=>{const b=e.target.closest("button,[data-coin]");if(!b)return;const d=b.dataset;
+ if(d.tab){go(d.tab);return}
+ if(d.close!==undefined){const dl=b.closest("dialog");if(dl)dl.close();return}
+ if(d.coin){e.preventDefault();openCoin(d.coin);return}
+ if(d.tf){S.tf=d.tf;const bx=b.closest(".chartbox"),c=bx&&COINS.get(bx.dataset.mint);if(c)loadChart(c);return}
+ if(d.sort){S.sort=d.sort;LS.set("eb_sort",S.sort);draw();return}
+ if(d.passed!==undefined){S.passedOnly=!S.passedOnly;draw();return}
+ if(d.showsk){S.showSk[d.showsk]=!S.showSk[d.showsk];draw();return}
+ if(d.copy){try{await navigator.clipboard.writeText(d.copy);toast("Address copied")}catch(err){toast("Couldn't copy. Press and hold the address instead.")}return}
+ if(d.watch){toggleWatch(d.watch);const c=COINS.get(d.watch);if(c&&$("#coin").open)drawSheet(c,false);if(S.tab==="watch"||S.tab==="check")draw();return}
+ if(d.logbuy){buySheet(d.logbuy);return}
+ if(d.savebuy!==undefined){const usd=parseFloat($("#buyusd").value),p=parseFloat($("#buyp").value),c=COINS.get(S.buyFor);if(!(usd>0)||!c){$("#buyusd").focus();return}
+  BUYS.unshift({id:"b"+Date.now(),m:c.mint,s:c.sym,n:c.name,icon:c.icon,usd,p:p>0?p:c.price,t:Date.now(),lq:c.liq,sold:null});LS.set("eb_buys",BUYS);
+  $("#buy").close();toast(LIMIT>0&&spentWeek()>LIMIT?"Logged. That puts you past this week's limit.":"Logged. Track it in Watch.");loadQuotes();draw();return}
+ if(d.sold){soldSheet(d.sold);return}
+ if(d.savesold!==undefined){const usd=parseFloat($("#soldusd").value),x=BUYS.find(y=>y.id===S.soldFor);if(!x||!(usd>=0)||$("#soldusd").value===""){return}
+  x.sold={usd,t:Date.now()};LS.set("eb_buys",BUYS);$("#buy").close();draw();return}
+ if(d.delbuy){if(!confirm("Remove this buy from your list?"))return;BUYS=BUYS.filter(x=>x.id!==d.delbuy);LS.set("eb_buys",BUYS);draw();return}
+ if(d.paste!==undefined){try{const t=await navigator.clipboard.readText();if(t){S.check.q=t.trim();draw();doCheck()}}catch(err){const i=$("#ckq");if(i)i.focus();toast("Press and hold in the box, then tap Paste")}return}
+ if(d.docheck!==undefined){doCheck();return}
+ if(d.set){const v=JSON.parse(d.val);SET[d.set]=v;LS.set("eb_set",SET);drawSet();if(["maxAgeH","maxMcap","minLiq"].includes(d.set)){S.fresh=null;refresh("fresh")}draw();return}
+ if(d.backup!==undefined){if(window.Kit)Kit.backup(b);return}
+ if(d.restore!==undefined){if(window.Kit)Kit.restore();return}
+});
+document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target&&e.target.id==="ckq"){e.preventDefault();e.target.blur();doCheck()}});
+document.addEventListener("input",e=>{if(e.target&&e.target.id==="ckq")S.check.q=e.target.value;if(e.target&&e.target.id==="limin"){LIMIT=Math.max(0,parseFloat(e.target.value)||0);LS.set("eb_limit",LIMIT);if(S.tab==="watch")draw()}});
+$("#openSet").addEventListener("click",()=>{drawSet();$("#set").showModal()});
+$("#refresh").addEventListener("click",()=>{const t=S.tab;if(t==="fresh"||t==="hot")refresh(t,true);else if(t==="watch")loadQuotes();else if(t==="record")loadHist();else doCheck()});
+for(const id of ["coin","set","buy"]){const dl=$("#"+id);dl.addEventListener("click",e=>{if(e.target===dl)dl.close()});dl.addEventListener("close",()=>{if(id==="coin"){S.open=null;draw()}})}
+
+/* ---------- start ---------- */
+draw();tick(true);
+if(S.tab!=="fresh")setTimeout(()=>{if(!S.fresh)refresh("fresh")},1500);   // get Fresh ready in the background
+if(S.tab!=="record")loadHist();
+</script>
+<script src="kit.js?v=3"></script>
+</body>
+</html>
