@@ -29,7 +29,7 @@ em{font-style:normal}
 .hbar{display:flex;align-items:center;gap:8px}
 .wm{display:flex;align-items:center;gap:9px;margin:0;font:900 26px/1 var(--f);white-space:nowrap;font-stretch:125%;letter-spacing:-.01em;
  background:var(--dawn);-webkit-background-clip:text;background-clip:text;color:transparent;flex:1}
-.wm svg{width:36px;height:36px;flex:none}
+.wm svg{width:34px;height:36px;flex:none;filter:drop-shadow(0 4px 12px rgba(255,94,98,.35))}
 .ib{display:inline-grid;place-items:center;width:40px;height:40px;border:1px solid var(--rim);border-radius:12px;background:var(--deep);color:var(--paper);padding:0}
 .ib svg{width:20px;height:20px}
 .ib.sm{width:32px;height:32px;border-radius:10px}.ib.sm svg{width:16px;height:16px}
