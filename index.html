@@ -15,7 +15,8 @@
 <meta name="apple-mobile-web-app-title" content="Early Bird">
 <link rel="preload" href="fonts/archivo-x.woff" as="font" type="font/woff" crossorigin>
 <link rel="preload" href="fonts/big-shoulders.woff" as="font" type="font/woff" crossorigin>
-<link rel="stylesheet" href="eb.css?v=9">
+<link rel="stylesheet" href="eb.css?v=10">
+<script>/* put the saved look on before anything draws, so there's no flash */try{var t=JSON.parse(localStorage.getItem("eb_set")||"{}").theme;if(t&&t!=="night")document.documentElement.dataset.theme=t}catch(e){}</script>
 </head>
 <body>
 <header class="wrap top">
@@ -54,7 +55,10 @@ const{money,ageTxt,VERDICT}=EB;
 const pct=(x,d=0)=>x==null||!isFinite(x)?"–":(x>0?"+":"")+(Math.abs(x)>=1000?Math.round(x).toLocaleString():x.toFixed(d))+"%";
 const cls=x=>x==null?"":x>=0?"up":"dn";
 const get=EB.makeGet(u=>fetch(u,{cache:"no-store"}));
-const DEF={maxAgeH:24,maxMcap:2e6,minLiq:5e3,hide:true,auto:true};
+const DEF={maxAgeH:24,maxMcap:2e6,minLiq:5e3,hide:true,auto:true,theme:"night"};
+const THEMEBG={night:"#120E33",solana:"#0C0A1A",money:"#061411",day:"#F3F5FB"};
+function applyTheme(){const t=SET.theme||"night";if(t==="night")delete document.documentElement.dataset.theme;else document.documentElement.dataset.theme=t;
+ const m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",THEMEBG[t]||THEMEBG.night)}
 let SET=Object.assign({},DEF,LS.get("eb_set",{}));
 let WATCH=LS.get("eb_watch",[]),BUYS=LS.get("eb_buys",[]),RECENT=LS.get("eb_recent",[]),LIMIT=+LS.get("eb_limit",0)||0;
 const S={tab:LS.get("eb_tab","fresh"),fresh:null,hot:null,busy:{},err:{},sort:LS.get("eb_sort","score"),off:{},
@@ -120,7 +124,7 @@ function radar(mode,coins,msg){const maxA=mode==="hot"?168:SET.maxAgeH,maxM=mode
   return `<g class="blip v-${c.verdict}" data-coin="${esc(c.mint)}" transform="translate(${x.toFixed(1)} ${y.toFixed(1)})" role="button" tabindex="0" aria-label="${esc(c.name||c.sym)}: ${VERDICT[c.verdict]}, ${ageTxt(c.ageH)} old, ${money(c.mcap)}">
    <circle class="hit" r="${Math.max(13,s+6).toFixed(1)}"/><circle class="halo" r="${(s*2.8).toFixed(1)}" fill="url(#g-${c.verdict})"/><circle class="dot" r="${s.toFixed(1)}" style="animation-delay:-${ph.toFixed(2)}s"/>${c.isNew?`<circle class="ping" r="${s.toFixed(1)}"/>`:""}
    ${named.has(c.mint)?`<text class="bl" x="${(left?-(s+5):s+5).toFixed(1)}" y="4" text-anchor="${left?"end":"start"}">${esc(c.sym)}</text>`:""}</g>`}).join("");
- return `<div class="radar"><svg viewBox="0 0 400 400" aria-label="Radar of ${coins.length} coins"><defs><radialGradient id="disc"><stop offset="0" stop-color="#2A2268"/><stop offset=".7" stop-color="#1A1549"/><stop offset="1" stop-color="#140F3B"/></radialGradient>${[["passed","#52F2B8"],["caution","#FFC845"],["sketchy","#FF4F7B"],["unchecked","#8F89BF"]].map(([k,c])=>`<radialGradient id="g-${k}"><stop offset="0" stop-color="${c}" stop-opacity=".55"/><stop offset=".45" stop-color="${c}" stop-opacity=".16"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></radialGradient>`).join("")}</defs>
+ return `<div class="radar"><svg viewBox="0 0 400 400" aria-label="Radar of ${coins.length} coins"><defs><radialGradient id="disc"><stop offset="0" class="d0"/><stop offset=".7" class="d1"/><stop offset="1" class="d2"/></radialGradient>${[["passed","--pass"],["caution","--warn"],["sketchy","--bad"],["unchecked","--none"]].map(([k,v])=>`<radialGradient id="g-${k}"><stop offset="0" style="stop-color:var(${v})" stop-opacity=".55"/><stop offset=".45" style="stop-color:var(${v})" stop-opacity=".16"/><stop offset="1" style="stop-color:var(${v})" stop-opacity="0"/></radialGradient>`).join("")}</defs>
   <circle class="disc" cx="${C}" cy="${C}" r="${R}"/>${rings}<line class="axis" x1="${C}" y1="${C-R}" x2="${C}" y2="${C+R}"/><line class="axis" x1="${C-R}" y1="${C}" x2="${C+R}" y2="${C}"/>${ticks}
   <circle class="core" cx="${C}" cy="${C}" r="3"/>${msg?`<text class="scanning" x="${C}" y="${C+34}">${esc(msg)}</text>`:""}${blips}</svg>
   <div class="sweepbox"><div class="sweep" style="animation-delay:-${el.toFixed(2)}s"></div></div></div>`}
@@ -185,10 +189,10 @@ function chartHTML(c){const k=c.pair&&S.charts[c.pair+"|"+S.tf];
  if(k.err||!k.L||k.L.length<3)return pills+`<div class="chartmsg">No chart for this one yet. Tap Full chart to see it on DEX Screener.</div>`;
  const L=k.L,W=360,H=176,B=26,cs=L.map(x=>+x[4]),hs=L.map(x=>+x[2]),ls=L.map(x=>+x[3]),vs=L.map(x=>+x[5]||0);
  const hi=Math.max(...hs),lo=Math.min(...ls),vm=Math.max(...vs)||1,X=i=>i*W/(L.length-1),Y=p=>6+(H-B-12)*(1-(p-lo)/((hi-lo)||1));
- const up=cs[cs.length-1]>=cs[0],col=up?"#52F2B8":"#FF4F7B",ch=(cs[cs.length-1]/cs[0]-1)*100,id="cg"+(++chartHTML.n);
+ const css=getComputedStyle(document.documentElement),up=cs[cs.length-1]>=cs[0],col=css.getPropertyValue(up?"--pass":"--bad").trim()||(up?"#52F2B8":"#FF4F7B"),ch=(cs[cs.length-1]/cs[0]-1)*100,id="cg"+(++chartHTML.n);
  const line=cs.map((p,i)=>`${i?"L":"M"}${X(i).toFixed(1)} ${Y(p).toFixed(1)}`).join(""),bw=Math.max(1,W/L.length-1);
  return pills+`<svg class="chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Price over ${S.tf}, ${pct(ch)}"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${col}" stop-opacity=".32"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></linearGradient></defs>
-  <g fill="#A9A2DA" opacity=".22">${vs.map((v,i)=>`<rect x="${(X(i)-bw/2).toFixed(1)}" y="${(H-v/vm*(B-4)).toFixed(1)}" width="${bw.toFixed(1)}" height="${(v/vm*(B-4)).toFixed(1)}"/>`).join("")}</g>
+  <g class="vol">${vs.map((v,i)=>`<rect x="${(X(i)-bw/2).toFixed(1)}" y="${(H-v/vm*(B-4)).toFixed(1)}" width="${bw.toFixed(1)}" height="${(v/vm*(B-4)).toFixed(1)}"/>`).join("")}</g>
   <path d="${line}L${W} ${H-B}L0 ${H-B}Z" fill="url(#${id})"/><path d="${line}" fill="none" stroke="${col}" stroke-width="2.2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/></svg>
   <div class="chartfoot"><span>Low ${priceTxt(lo)}</span><b class="${cls(ch)}">${pct(ch)} over ${S.tf}</b><span>High ${priceTxt(hi)}</span></div>`}
 chartHTML.n=0;
@@ -297,6 +301,7 @@ function recordView(){const H=S.hist;let h=`<h2 class="pt" style="margin-top:18p
 /* ---------- settings ---------- */
 function drawSet(){const pill=(k,v,l)=>`<button class="pill ${SET[k]===v?"on":""}" data-set="${k}" data-val='${JSON.stringify(v)}' aria-pressed="${SET[k]===v}">${l}</button>`;
  $("#setsheet").innerHTML=`<h3>Settings</h3>
+ <h4>Look</h4><div class="pills">${[["night","Night"],["solana","Solana"],["money","Money"],["day","Daylight"]].map(([v,l])=>pill("theme",v,l)).join("")}</div>
  <h4>How early (Fresh)</h4><div class="pills">${[[1,"1 hour"],[6,"6 hours"],[24,"24 hours"],[72,"3 days"]].map(([v,l])=>pill("maxAgeH",v,l)).join("")}</div>
  <h4>Biggest market cap (Fresh)</h4><div class="pills">${[[25e4,"$250K"],[1e6,"$1M"],[2e6,"$2M"],[1e7,"$10M"]].map(([v,l])=>pill("maxMcap",v,l)).join("")}</div>
  <h4>Smallest pool (Fresh)</h4><div class="pills">${[[2e3,"$2K"],[5e3,"$5K"],[1e4,"$10K"],[25e3,"$25K"]].map(([v,l])=>pill("minLiq",v,l)).join("")}</div>
@@ -352,7 +357,7 @@ document.addEventListener("click",async e=>{const b=e.target.closest("button,[da
  if(d.delbuy){if(!confirm("Remove this buy from your list?"))return;BUYS=BUYS.filter(x=>x.id!==d.delbuy);LS.set("eb_buys",BUYS);draw();return}
  if(d.paste!==undefined){try{const t=await navigator.clipboard.readText();if(t){S.check.q=t.trim();draw();doCheck()}}catch(err){const i=$("#ckq");if(i)i.focus();toast("Press and hold in the box, then tap Paste")}return}
  if(d.docheck!==undefined){doCheck();return}
- if(d.set){const v=JSON.parse(d.val);SET[d.set]=v;LS.set("eb_set",SET);drawSet();if(d.set==="hide"){S.off={}}if(["maxAgeH","maxMcap","minLiq"].includes(d.set)){S.fresh=null;refresh("fresh")}draw();return}
+ if(d.set){const v=JSON.parse(d.val);SET[d.set]=v;LS.set("eb_set",SET);drawSet();if(d.set==="hide"){S.off={}}if(d.set==="theme")applyTheme();if(["maxAgeH","maxMcap","minLiq"].includes(d.set)){S.fresh=null;refresh("fresh")}draw();return}
  if(d.backup!==undefined){if(window.Kit)Kit.backup(b);return}
  if(d.restore!==undefined){if(window.Kit)Kit.restore();return}
 });
@@ -364,7 +369,7 @@ $("#refresh").addEventListener("click",()=>{const t=S.tab;if(t==="fresh"||t==="h
 for(const id of ["coin","set","buy"]){const dl=$("#"+id);dl.addEventListener("click",e=>{if(e.target===dl)dl.close()});dl.addEventListener("close",()=>{if(id==="coin"){S.open=null;draw()}})}
 
 /* ---------- start ---------- */
-draw();tick(true);
+applyTheme();draw();tick(true);
 if(S.tab!=="fresh")setTimeout(()=>{if(!S.fresh)refresh("fresh")},1500);   // get Fresh ready in the background
 if(S.tab!=="record")loadHist();
 </script>
