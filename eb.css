@@ -380,3 +380,116 @@ footer{margin-top:28px}
 :root[data-theme="day"] #silk .rib{opacity:.32}
 .silk-on .row,.silk-on .hero,.silk-on .card2{background-color:color-mix(in srgb,var(--deep) 86%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
 @media (prefers-reduced-motion:reduce){#silk .rib{animation:none}}
+
+/* ---------- live trades ---------- */
+.flow{padding:2px 0 6px}
+.ft{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--haze);font-stretch:85%;margin:6px 0}
+.ft b{color:var(--paper);font-weight:800}
+.fbar{height:8px;border-radius:5px;background:var(--bad);overflow:hidden}
+.fbar i{display:block;height:100%;background:var(--pass)}
+.trades{display:flex;flex-direction:column;margin-top:6px;border-top:1px solid var(--rim)}
+.tr{display:grid;grid-template-columns:46px 1fr auto auto;gap:6px 10px;align-items:center;padding:9px 2px;border-bottom:1px solid var(--rim);text-decoration:none;color:var(--paper);font-size:13.5px}
+.tr .k{font-weight:800;font-size:11.5px;text-transform:uppercase;letter-spacing:.06em}
+.tr.b .k{color:var(--pass)}.tr.s .k{color:var(--bad)}
+.tr b{font-weight:800;font-variant-numeric:tabular-nums}
+.tr .big{grid-column:2;justify-self:start;margin-top:-2px;font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:2px 6px;border-radius:5px;background:var(--paper);color:var(--night)}
+.tr .wa{grid-row:1;grid-column:3;color:var(--haze);font:600 12px ui-monospace,SFMono-Regular,Menlo,monospace}
+.tr .ago{grid-row:1;grid-column:4;color:var(--dim);font-size:12px;min-width:28px;text-align:right}
+/* ---------- practice ---------- */
+.prac{margin-top:14px;padding:14px;border-radius:20px;background:color-mix(in srgb,var(--paper) 5%,transparent);border:1px solid var(--rim)}
+.prt{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.prt b{font:700 13px/1 var(--f);font-stretch:110%;text-transform:uppercase;letter-spacing:.08em}
+.prt span{font-size:12.5px;color:var(--haze);font-stretch:85%}
+.prh{margin-top:10px;font-size:14.5px}.prh b{font-weight:800}
+.pill:disabled{opacity:.35}
+.btns.three{grid-template-columns:1fr 1fr 1fr}
+.cardimg{display:block;width:100%;border-radius:18px;margin-top:10px;box-shadow:0 20px 40px -20px rgba(0,0,0,.8)}
+/* ---------- coin sheet tabs ---------- */
+.ctabs{position:sticky;top:-10px;z-index:3;display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:14px -18px 0;padding:8px 14px;background:color-mix(in srgb,var(--deep) 86%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--rim)}
+.ctab{position:relative;border:0;border-radius:999px;background:none;padding:10px 2px;font:700 12px/1 var(--f);font-stretch:95%;text-transform:uppercase;letter-spacing:.05em;color:var(--dim);white-space:nowrap}
+.ctab.on{background:var(--paper);color:var(--night)}
+.ctab i{display:inline-grid;place-items:center;min-width:16px;height:16px;margin-left:4px;padding:0 4px;border-radius:8px;font:800 10px/1 var(--f);font-style:normal;vertical-align:1px;color:#111}
+.ctab i.b{background:var(--bad)}.ctab i.w{background:var(--warn)}
+.cpane[hidden]{display:none}
+.cpane>.h3:first-child{margin-top:20px}
+.mono{font:600 12.5px ui-monospace,SFMono-Regular,Menlo,monospace}
+/* ---------- the read ---------- */
+.read{padding:14px 15px;border-radius:20px;background:color-mix(in srgb,var(--paper) 5%,transparent);border:1px solid var(--rim)}
+.rh{display:flex;align-items:center;gap:10px}
+.rh i{width:10px;height:10px;border-radius:50%;background:var(--haze);box-shadow:0 0 0 4px color-mix(in srgb,var(--haze) 18%,transparent)}
+.read.t-up .rh i{background:var(--pass);box-shadow:0 0 0 4px color-mix(in srgb,var(--pass) 20%,transparent)}
+.read.t-dn .rh i{background:var(--bad);box-shadow:0 0 0 4px color-mix(in srgb,var(--bad) 20%,transparent)}
+.rh b{font:900 27px/1 var(--fd);text-transform:uppercase;letter-spacing:.01em}
+.read.t-up .rh b{color:var(--pass)}.read.t-dn .rh b{color:var(--bad)}
+.why{list-style:none;margin:12px 0 0;padding:0}
+.why li{display:grid;grid-template-columns:18px 1fr;gap:6px;padding:7px 0;border-top:1px solid var(--rim);font-size:14px;line-height:1.4}
+.why li span{font-size:10px;line-height:20px;color:var(--haze)}
+.why li.w-up span{color:var(--pass)}.why li.w-dn span{color:var(--bad)}
+/* ---------- timing and the plan ---------- */
+.tline{display:flex;flex-direction:column;gap:2px}
+.tl{display:grid;grid-template-columns:62px 1fr 62px 52px;gap:10px;align-items:center;padding:6px 0;font-size:13px}
+.tl span{color:var(--haze);font-stretch:85%;font-weight:600}
+.tb{height:8px;border-radius:5px;background:color-mix(in srgb,var(--paper) 9%,transparent);overflow:hidden}
+.tb i{display:block;height:100%;border-radius:5px;background:var(--pass)}
+.tl b{font-weight:800;font-variant-numeric:tabular-nums;text-align:right}
+.tl em{font-style:normal;font-weight:800;font-variant-numeric:tabular-nums;text-align:right}
+.tsum{margin:10px 0 4px;font-size:14.5px;line-height:1.45}
+.plan{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px}
+.pp{padding:12px 11px;border-radius:16px;background:color-mix(in srgb,var(--paper) 5%,transparent);border:1px solid var(--rim);display:flex;flex-direction:column;gap:4px;min-width:0}
+.pp span{font:700 10.5px/1.15 var(--f);text-transform:uppercase;letter-spacing:.06em;color:var(--haze)}
+.pp b{font:900 24px/1 var(--fd);font-variant-numeric:tabular-nums}
+.pp.g b{color:var(--pass)}.pp.r b{color:var(--bad)}
+.pp small{font-size:11.5px;line-height:1.35;color:var(--haze);font-stretch:85%}
+/* ---------- numbers table ---------- */
+.numsw{margin-top:14px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.nums{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+.nums th,.nums td{padding:8px 4px;border-bottom:1px solid var(--rim);text-align:right;white-space:nowrap}
+.nums thead th{font:700 11px/1 var(--f);text-transform:uppercase;letter-spacing:.06em;color:var(--dim)}
+.nums tbody th{text-align:left;font-weight:600;color:var(--haze);font-stretch:85%}
+.nums td{font-weight:700}
+/* ---------- holders ---------- */
+.hsum{display:flex;align-items:baseline;gap:10px}
+.hsum b{font:900 40px/1 var(--fd);font-variant-numeric:tabular-nums}
+.hsum span{font-size:13.5px;color:var(--haze);line-height:1.35}
+.hdbar{display:flex;height:14px;margin-top:12px;border-radius:7px;overflow:hidden;background:color-mix(in srgb,var(--paper) 7%,transparent);gap:1px}
+.hdbar i{display:block;height:100%;background:color-mix(in srgb,var(--paper) calc(var(--k) * 78%),transparent);min-width:2px}
+.hdbar i.hp{background:var(--dim)}.hdbar i.hi{background:var(--warn)}.hdbar i.hc{background:var(--bad)}
+.hkey{display:flex;flex-wrap:wrap;gap:6px 14px;margin:8px 0 4px;font-size:11.5px;color:var(--haze)}
+.hkey i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:-1px;background:color-mix(in srgb,var(--paper) 70%,transparent)}
+.hkey i.hp{background:var(--dim)}.hkey i.hi{background:var(--warn)}.hkey i.hc{background:var(--bad)}
+.hr{display:grid;grid-template-columns:22px 1fr auto 58px;gap:10px;align-items:center;padding:9px 2px;border-bottom:1px solid var(--rim);text-decoration:none;color:var(--paper);font-size:13.5px}
+.hn{color:var(--dim);font-weight:800;font-size:12px}
+.hr b{text-align:right;font-weight:800;font-variant-numeric:tabular-nums}
+.htag{font:800 10.5px/1 var(--f);text-transform:uppercase;letter-spacing:.06em;padding:4px 7px;border-radius:6px;background:color-mix(in srgb,var(--paper) 10%,transparent);color:var(--haze)}
+.htag.ins{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+/* ---------- the creator ---------- */
+.crw{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-bottom:6px}
+.crw .btn{padding:9px 13px;font-size:13px}
+.crlp{font-size:12.5px;color:var(--haze);font-stretch:90%}
+.crwarn{margin:10px 0 0;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--warn) 11%,transparent);border-left:3px solid var(--warn);font-size:13.5px;line-height:1.4}
+.crsum{margin:12px 0 4px;font-size:14px}
+.crt{display:grid;grid-template-columns:36px 1fr auto auto;gap:10px;align-items:center;width:100%;padding:9px 2px;border:0;border-bottom:1px solid var(--rim);background:none;color:var(--paper);text-align:left;font:inherit}
+.crt .av{width:36px;height:36px;font-size:14px}
+.crn{min-width:0}.crn b{display:block;font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crn small{display:block;font-size:11.5px;color:var(--haze);font-stretch:85%}
+.crm{font-weight:800;font-size:13px;font-variant-numeric:tabular-nums}
+.crs{font:800 10.5px/1 var(--f);text-transform:uppercase;letter-spacing:.05em;padding:5px 7px;border-radius:6px;white-space:nowrap}
+.crs.dead{background:color-mix(in srgb,var(--bad) 16%,transparent);color:var(--bad)}
+.crs.al{background:color-mix(in srgb,var(--paper) 10%,transparent);color:var(--paper)}
+.crs.big{background:color-mix(in srgb,var(--pass) 18%,transparent);color:var(--pass)}
+.crs.new{background:color-mix(in srgb,var(--paper) 6%,transparent);color:var(--haze)}
+/* ---------- plan meter on logged buys ---------- */
+.pm{margin-top:12px}
+.pmt{position:relative;height:6px;margin:0 6px 22px;border-radius:3px;background:color-mix(in srgb,var(--paper) 10%,transparent)}
+.pmz,.pmg{position:absolute;top:0;bottom:0;border-radius:3px}
+.pmz{background:color-mix(in srgb,var(--bad) 45%,transparent)}.pmg{background:color-mix(in srgb,var(--pass) 40%,transparent)}
+.pmk{position:absolute;top:-3px;width:2px;height:12px;margin-left:-1px;background:var(--rim)}
+.pmk em{position:absolute;top:15px;left:50%;transform:translateX(-50%);font:700 10.5px/1 var(--f);font-style:normal;color:var(--dim);white-space:nowrap}
+.pmd{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;border:3px solid var(--night);background:var(--paper)}
+.pmd.g{background:var(--pass)}.pmd.r{background:var(--bad)}
+.pmn{font-size:12.5px;color:var(--haze);font-stretch:90%}
+.pmh{padding:9px 11px;border-radius:12px;font-size:13.5px;line-height:1.4}
+.pmh.g{background:color-mix(in srgb,var(--pass) 12%,transparent);border-left:3px solid var(--pass)}
+.pmh.r{background:color-mix(in srgb,var(--bad) 12%,transparent);border-left:3px solid var(--bad)}
+@media (max-width:370px){.plan{grid-template-columns:1fr}.pp{flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:4px 10px}.pp small{flex-basis:100%}.tl{grid-template-columns:56px 1fr 56px 48px;gap:8px}}
+.panel .ctabs{top:0}
