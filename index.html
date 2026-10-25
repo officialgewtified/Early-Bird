@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Early Bird</title>
 <meta name="description" content="Brand-new Solana meme coins, checked for the usual scams and ranked by how early they are.">
-<meta name="theme-color" content="#061411">
+<meta name="theme-color" content="#111113">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=3">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=3">
 <link rel="manifest" href="manifest.webmanifest?v=3">
@@ -15,8 +15,8 @@
 <meta name="apple-mobile-web-app-title" content="Early Bird">
 <link rel="preload" href="fonts/archivo-x.woff" as="font" type="font/woff" crossorigin>
 <link rel="preload" href="fonts/big-shoulders.woff" as="font" type="font/woff" crossorigin>
-<link rel="stylesheet" href="eb.css?v=11">
-<script>/* put the saved look on before anything draws, so there's no flash */try{var o=JSON.parse(localStorage.getItem("eb_set")||"{}"),t=o.theme||"money";if(t!=="night")document.documentElement.dataset.theme=t;if(t==="custom"&&o.custom)document.documentElement.style.background=o.custom.bg}catch(e){}</script>
+<link rel="stylesheet" href="eb.css?v=12">
+<script>/* put the saved look on before anything draws, so there's no flash */try{var o=JSON.parse(localStorage.getItem("eb_set")||"{}"),t=o.theme||"studio";if(t!=="night")document.documentElement.dataset.theme=t;if(t==="custom"&&o.custom)document.documentElement.style.background=o.custom.bg}catch(e){}</script>
 </head>
 <body>
 <header class="wrap top">
@@ -55,10 +55,10 @@ const{money,ageTxt,VERDICT}=EB;
 const pct=(x,d=0)=>x==null||!isFinite(x)?"–":(x>0?"+":"")+(Math.abs(x)>=1000?Math.round(x).toLocaleString():x.toFixed(d))+"%";
 const cls=x=>x==null?"":x>=0?"up":"dn";
 const get=EB.makeGet(u=>fetch(u,{cache:"no-store"}));
-const DEF={maxAgeH:24,maxMcap:2e6,minLiq:5e3,hide:true,auto:true,theme:"money"};
-const THEMEBG={night:"#120E33",solana:"#0C0A1A",money:"#061411",day:"#F3F5FB"};
+const DEF={maxAgeH:24,maxMcap:2e6,minLiq:5e3,hide:true,auto:true,theme:"studio"};
+const THEMEBG={studio:"#111113",night:"#120E33",solana:"#0C0A1A",money:"#061411",day:"#F3F5FB"};
 /* the eight colors you can pick in Settings > Look > Custom; everything else is worked out from them */
-const PRESETS={night:{bg:"#120E33",card:"#1B1648",text:"#F7F3FF",a1:"#FFB23F",a2:"#C04BFF",pass:"#52F2B8",warn:"#FFC845",bad:"#FF4F7B"},
+const PRESETS={studio:{bg:"#111113",card:"#1A1A1D",text:"#F4F4F5",a1:"#FFFFFF",a2:"#A1A1AA",pass:"#4ADE80",warn:"#FACC15",bad:"#F87171"},night:{bg:"#120E33",card:"#1B1648",text:"#F7F3FF",a1:"#FFB23F",a2:"#C04BFF",pass:"#52F2B8",warn:"#FFC845",bad:"#FF4F7B"},
  solana:{bg:"#0C0A1A",card:"#161330",text:"#F3F1FF",a1:"#9945FF",a2:"#19FB9B",pass:"#19FB9B",warn:"#FFD25A",bad:"#FF4D73"},
  money:{bg:"#061411",card:"#0C1F1A",text:"#EEFAF4",a1:"#F5C451",a2:"#B6F35A",pass:"#3DF29A",warn:"#F5C451",bad:"#FF5C5C"},
  day:{bg:"#F3F5FB",card:"#FFFFFF",text:"#121734",a1:"#FF6A2B",a2:"#7B4DFF",pass:"#0EA868",warn:"#D98E00",bad:"#E5304F"}};
@@ -76,17 +76,17 @@ function customVars(c){const dark=lum(c.bg)<.35,mid=mixc(c.a1,c.a2,.5);
   "--sweep":`conic-gradient(from 0deg,transparent 0deg 280deg,${rgba(c.a2,.07)} 300deg,${rgba(mid,dark?.24:.14)} 340deg,${rgba(c.a1,dark?.58:.32)} 358.6deg,${rgba(dark?mixc(c.a1,"#ffffff",.6):c.a1,dark?.95:.6)} 359.6deg,transparent 360deg)`,
   "--blend":dark?"screen":"multiply","--disc0":dark?mixc(c.bg,c.text,.1):mixc(c.bg,"#ffffff",.9),"--disc1":dark?mixc(c.bg,c.text,.04):mixc(c.bg,"#ffffff",.6),"--disc2":c.bg,
   "--sig1":c.a1,"--sig2":mixc(c.a1,c.a2,.25),"--sig3":mid,"--sig4":mixc(c.a1,c.a2,.75),"--sig5":c.a2,"--dockbg":rgba(c.bg,.9),
-  "--veil":dark?rgba(mixc(c.bg,"#000000",.5),.75):rgba("#121734",.35),"--shim":rgba(c.text,.04),"color-scheme":dark?"dark":"light"}}
-const CVARS=Object.keys(customVars(PRESETS.money));
+  "--veil":dark?rgba(mixc(c.bg,"#000000",.5),.75):rgba("#121734",.35),"--hero":`radial-gradient(75% 55% at 55% 42%,${mixc(c.card,c.text,.1)} 0%,${c.card} 58%,${c.bg} 100%)`,"--shim":rgba(c.text,.04),"color-scheme":dark?"dark":"light"}}
+const CVARS=Object.keys(customVars(PRESETS.studio));
 function applyTheme(){const t=SET.theme||"money",el=document.documentElement;
  CVARS.forEach(k=>el.style.removeProperty(k));el.style.removeProperty("background");
  if(t==="night")delete el.dataset.theme;else el.dataset.theme=t;
- if(t==="custom"){const v=customVars(Object.assign({},PRESETS.money,SET.custom||{}));for(const k in v)el.style.setProperty(k,v[k])}
- const m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",t==="custom"?(SET.custom||PRESETS.money).bg:THEMEBG[t]||THEMEBG.money)}
+ if(t==="custom"){const v=customVars(Object.assign({},PRESETS.studio,SET.custom||{}));for(const k in v)el.style.setProperty(k,v[k])}
+ const m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",t==="custom"?(SET.custom||PRESETS.studio).bg:THEMEBG[t]||THEMEBG.studio)}
 let SET=Object.assign({},DEF,LS.get("eb_set",{}));
 let WATCH=LS.get("eb_watch",[]),BUYS=LS.get("eb_buys",[]),RECENT=LS.get("eb_recent",[]),LIMIT=+LS.get("eb_limit",0)||0;
 const S={tab:LS.get("eb_tab","fresh"),fresh:null,hot:null,busy:{},err:{},sort:LS.get("eb_sort","score"),off:{},
- check:{q:"",c:null,busy:false,err:""},charts:{},tf:"8h",quotes:{},qAt:0,qFail:0,hist:null,seen:{},open:null};
+ check:{q:"",c:null,busy:false,err:""},feat:{},charts:{},tf:"8h",quotes:{},qAt:0,qFail:0,hist:null,seen:{},open:null};
 const COINS=new Map();             // every coin looked at this visit, by address
 if(!["fresh","hot","check","watch","record"].includes(S.tab))S.tab="fresh";
 function toast(t){const f=$("#float");f.innerHTML=`<div class="toast" role="status">${esc(t)}</div>`;clearTimeout(toast.t);toast.t=setTimeout(()=>{f.innerHTML=""},2600)}
@@ -157,6 +157,22 @@ const groupOf=c=>c.verdict==="unchecked"?"caution":c.verdict;
 function legend(mode,all){const off=offOf(mode),n=g=>all.filter(c=>groupOf(c)===g).length;
  return `<div class="legend">${[["passed","Passed","var(--pass)"],["caution","Caution","var(--warn)"],["sketchy","Sketchy","var(--bad)"]].map(([g,l,col])=>`<button class="lg ${off.has(g)?"off":""}" data-lg="${mode}|${g}" style="--c:${col}" aria-pressed="${!off.has(g)}"><i></i><b>${n(g)}</b>${l}</button>`).join("")}</div>`}
 
+/* ---------- the featured coin, shown like a product on a drop page, and the strip of the next ones ---------- */
+const ARROW=d=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="${d<0?"M15 5l-7 7 7 7":"M9 5l7 7-7 7"}"/></svg>`;
+function picks(mode){const r=S[mode];if(!r)return[];return r.coins.filter(c=>c.verdict!=="sketchy").sort((a,b)=>VR[a.verdict]-VR[b.verdict]||b.score-a.score).slice(0,8)}
+function hero(mode){const P=picks(mode);if(!P.length)return"";let i=Math.max(0,P.findIndex(c=>c.mint===S.feat[mode]));const c=P[i];S.feat[mode]=c.mint;
+ const sym=String(c.sym||"").replace(/^\$/,"").slice(0,12),wfs=Math.round(Math.max(78,Math.min(210,360/(Math.max(3,sym.length)*.46)))),ch=EB.chg(c,"h1"),w=WATCH.some(x=>x.m===c.mint);
+ const head=mode==="fresh"?"Get in<br>early.":"Hot right<br>now.";
+ return `<section class="hero v-${c.verdict}" aria-label="Top pick"><div class="wmk" style="--wfs:${wfs}px" aria-hidden="true">${esc(sym)}</div>
+  <div class="htop"><h2>${head}</h2><div class="rank">Pick<b>${i+1}/${P.length}</b></div></div>
+  <button class="shot" data-coin="${esc(c.mint)}" aria-label="Open ${esc(c.name||c.sym)}">${avatar(c)}</button>
+  <div class="spec"><div class="nm">${esc(c.name||c.sym)}</div><div class="price"><b>${money(c.mcap)}</b>${ch!=null?`<span class="${cls(ch)}">${pct(ch)} 1h</span>`:""}</div>
+   <div class="sub2">$${esc(c.sym)}, ${ageTxt(c.ageH)} old, market cap</div></div>
+  <div class="tags"><span class="tag"><i></i>${VERDICT[c.verdict]}</span><span class="tag">Early score ${c.score}</span>${c.holders!=null?`<span class="tag">${c.holders.toLocaleString()} holders</span>`:""}</div>
+  <div class="acts"><button class="view" data-coin="${esc(c.mint)}">View coin</button><button class="ib" data-watch="${esc(c.mint)}" aria-label="${w?"Stop watching":"Watch"}">${w?"★":"☆"}</button></div>
+  <div class="nav"><button class="ib" data-featstep="${mode}|-1" aria-label="Previous pick">${ARROW(-1)}</button><span class="bar"><i style="left:${P.length>1?(i/(P.length-1)*100).toFixed(0):50}%"></i></span><button class="ib" data-featstep="${mode}|1" aria-label="Next pick">${ARROW(1)}</button></div></section>
+ <div class="strip" role="list">${P.map(x=>`<button class="card2 v-${x.verdict} ${x.mint===c.mint?"on":""}" data-feat="${mode}|${esc(x.mint)}" role="listitem"><span class="vdot"></span>${avatar(x)}<span style="min-width:0"><b>${esc(x.name||x.sym)}</b><small>MC ${money(x.mcap)}</small><small>Score ${x.score}</small></span><span class="go">${ARROW(1)}</span></button>`).join("")}</div>`}
+
 /* ---------- Fresh and Hot ---------- */
 function listView(mode){const r=S[mode],fresh=mode==="fresh";
  const head=`<h2 class="pt">${fresh?"Fresh launches":"Hot right now"}</h2><p class="sub">${fresh?`Under ${ageTxt(SET.maxAgeH)} old and under ${money(SET.maxMcap)}, ranked by Early score: how early it is and how much real buying there is. It isn't a prediction.`
@@ -164,7 +180,7 @@ function listView(mode){const r=S[mode],fresh=mode==="fresh";
  const cap=`<p class="cap">Each dot is a coin. Newer coins sit closer to the middle and bigger dots have bigger market caps. Tap one to check it.</p>`;
  if(!r)return `<section class="scope">${radar(mode,[],S.err[mode]?"No signal":"Scanning…")}${cap}</section>${head}${S.err[mode]?`<div class="oops">${esc(S.err[mode])}</div>`:skeleton()}`;
  const off=offOf(mode),all=r.coins,vis=all.filter(c=>!off.has(groupOf(c)));
- let h=`<section class="scope">${radar(mode,vis)}${cap}${legend(mode,all)}</section>${head}`;
+ let h=`${hero(mode)}<h2 class="pt">Radar</h2><section class="scope">${radar(mode,vis)}${cap}${legend(mode,all)}</section>${head}`;
  h+=`<div class="sorts" role="group" aria-label="Sort">${[["score","Early score"],["new","Newest"],["move","Movers"],["mcap","Smallest"]].map(([k,l])=>`<button class="so ${S.sort===k?"on":""}" data-sort="${k}">${l}</button>`).join("")}</div>`;
  const L=sortCoins(vis);
  h+=L.length?`<div class="rows">${L.map(row).join("")}</div>`:`<div class="empty">${all.length?"Everything here is filtered out. Tap a color above to show it again.":fresh?"No coins fit your settings right now. Try a longer age or a bigger market cap in Settings.":"Nothing is trending that fits right now."}</div>`;
@@ -325,10 +341,10 @@ function recordView(){const H=S.hist;let h=`<h2 class="pt" style="margin-top:18p
 /* ---------- settings ---------- */
 function drawSet(){const pill=(k,v,l)=>`<button class="pill ${SET[k]===v?"on":""}" data-set="${k}" data-val='${JSON.stringify(v)}' aria-pressed="${SET[k]===v}">${l}</button>`;
  $("#setsheet").innerHTML=`<h3>Settings</h3>
- <h4>Look</h4><div class="pills">${[["night","Night"],["solana","Solana"],["money","Money"],["day","Daylight"],["custom","Custom"]].map(([v,l])=>pill("theme",v,l)).join("")}</div>
+ <h4>Look</h4><div class="pills">${[["studio","Studio"],["night","Night"],["solana","Solana"],["money","Money"],["day","Daylight"],["custom","Custom"]].map(([v,l])=>pill("theme",v,l)).join("")}</div>
  ${SET.theme==="custom"?`<p class="fine" style="margin:10px 0 0">Tap a color to change it. The page updates as you pick.</p>
-  <div class="swatches">${CFIELDS.map(([k,l])=>`<label class="sw"><input type="color" data-cc="${k}" value="${esc((SET.custom||PRESETS.money)[k])}"><span>${l}</span></label>`).join("")}</div>
-  <div class="pills" style="margin-top:10px;align-items:center"><span class="fine">Start over from</span>${[["night","Night"],["solana","Solana"],["money","Money"],["day","Daylight"]].map(([v,l])=>`<button class="pill" data-ccfrom="${v}">${l}</button>`).join("")}</div>`:""}
+  <div class="swatches">${CFIELDS.map(([k,l])=>`<label class="sw"><input type="color" data-cc="${k}" value="${esc((SET.custom||PRESETS.studio)[k])}"><span>${l}</span></label>`).join("")}</div>
+  <div class="pills" style="margin-top:10px;align-items:center"><span class="fine">Start over from</span>${[["studio","Studio"],["night","Night"],["solana","Solana"],["money","Money"],["day","Daylight"]].map(([v,l])=>`<button class="pill" data-ccfrom="${v}">${l}</button>`).join("")}</div>`:""}
  <h4>How early (Fresh)</h4><div class="pills">${[[1,"1 hour"],[6,"6 hours"],[24,"24 hours"],[72,"3 days"]].map(([v,l])=>pill("maxAgeH",v,l)).join("")}</div>
  <h4>Biggest market cap (Fresh)</h4><div class="pills">${[[25e4,"$250K"],[1e6,"$1M"],[2e6,"$2M"],[1e7,"$10M"]].map(([v,l])=>pill("maxMcap",v,l)).join("")}</div>
  <h4>Smallest pool (Fresh)</h4><div class="pills">${[[2e3,"$2K"],[5e3,"$5K"],[1e4,"$10K"],[25e3,"$25K"]].map(([v,l])=>pill("minLiq",v,l)).join("")}</div>
@@ -369,11 +385,13 @@ document.addEventListener("click",async e=>{const b=e.target.closest("button,[da
  if(d.tab){go(d.tab);return}
  if(d.close!==undefined){const dl=b.closest("dialog");if(dl)dl.close();return}
  if(d.coin){e.preventDefault();openCoin(d.coin);return}
+ if(d.feat){const[m,mint]=d.feat.split("|");S.feat[m]=mint;draw();return}
+ if(d.featstep){const[m,st]=d.featstep.split("|"),P=picks(m);if(P.length){const i=Math.max(0,P.findIndex(c=>c.mint===S.feat[m]));S.feat[m]=P[(i+(+st)+P.length)%P.length].mint;draw()}return}
  if(d.tf){S.tf=d.tf;const bx=b.closest(".chartbox"),c=bx&&COINS.get(bx.dataset.mint);if(c)loadChart(c);return}
  if(d.sort){S.sort=d.sort;LS.set("eb_sort",S.sort);draw();return}
  if(d.lg){const[m,g]=d.lg.split("|"),o=offOf(m);o.has(g)?o.delete(g):o.add(g);draw();return}
  if(d.copy){try{await navigator.clipboard.writeText(d.copy);toast("Address copied")}catch(err){toast("Couldn't copy. Press and hold the address instead.")}return}
- if(d.watch){toggleWatch(d.watch);const c=COINS.get(d.watch);if(c&&$("#coin").open)drawSheet(c,false);if(S.tab==="watch"||S.tab==="check")draw();return}
+ if(d.watch){toggleWatch(d.watch);const c=COINS.get(d.watch);if(c&&$("#coin").open)drawSheet(c,false);draw();return}
  if(d.logbuy){buySheet(d.logbuy);return}
  if(d.savebuy!==undefined){const usd=parseFloat($("#buyusd").value),p=parseFloat($("#buyp").value),c=COINS.get(S.buyFor);if(!(usd>0)||!c){$("#buyusd").focus();return}
   BUYS.unshift({id:"b"+Date.now(),m:c.mint,s:c.sym,n:c.name,icon:c.icon,usd,p:p>0?p:c.price,t:Date.now(),lq:c.liq,sold:null});LS.set("eb_buys",BUYS);
@@ -385,14 +403,14 @@ document.addEventListener("click",async e=>{const b=e.target.closest("button,[da
  if(d.paste!==undefined){try{const t=await navigator.clipboard.readText();if(t){S.check.q=t.trim();draw();doCheck()}}catch(err){const i=$("#ckq");if(i)i.focus();toast("Press and hold in the box, then tap Paste")}return}
  if(d.docheck!==undefined){doCheck();return}
  if(d.ccfrom){SET.custom=Object.assign({},PRESETS[d.ccfrom]);LS.set("eb_set",SET);applyTheme();drawSet();return}
- if(d.set){const v=JSON.parse(d.val);if(d.set==="theme"&&v==="custom"&&!SET.custom)SET.custom=Object.assign({},PRESETS[SET.theme]||PRESETS.money);SET[d.set]=v;LS.set("eb_set",SET);drawSet();if(d.set==="hide"){S.off={}}if(d.set==="theme")applyTheme();if(["maxAgeH","maxMcap","minLiq"].includes(d.set)){S.fresh=null;refresh("fresh")}draw();return}
+ if(d.set){const v=JSON.parse(d.val);if(d.set==="theme"&&v==="custom"&&!SET.custom)SET.custom=Object.assign({},PRESETS[SET.theme]||PRESETS.studio);SET[d.set]=v;LS.set("eb_set",SET);drawSet();if(d.set==="hide"){S.off={}}if(d.set==="theme")applyTheme();if(["maxAgeH","maxMcap","minLiq"].includes(d.set)){S.fresh=null;refresh("fresh")}draw();return}
  if(d.backup!==undefined){if(window.Kit)Kit.backup(b);return}
  if(d.restore!==undefined){if(window.Kit)Kit.restore();return}
 });
 document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target&&e.target.id==="ckq"){e.preventDefault();e.target.blur();doCheck();return}
  const g=e.target&&e.target.closest&&e.target.closest(".blip");if(g&&(e.key==="Enter"||e.key===" ")){e.preventDefault();openCoin(g.dataset.coin)}});
 document.addEventListener("input",e=>{const cc=e.target&&e.target.dataset&&e.target.dataset.cc;
- if(cc){SET.custom=Object.assign({},PRESETS.money,SET.custom||{},{[cc]:e.target.value});LS.set("eb_set",SET);applyTheme();return}if(e.target&&e.target.id==="ckq")S.check.q=e.target.value;if(e.target&&e.target.id==="limin"){LIMIT=Math.max(0,parseFloat(e.target.value)||0);LS.set("eb_limit",LIMIT);if(S.tab==="watch")draw()}});
+ if(cc){SET.custom=Object.assign({},PRESETS.studio,SET.custom||{},{[cc]:e.target.value});LS.set("eb_set",SET);applyTheme();return}if(e.target&&e.target.id==="ckq")S.check.q=e.target.value;if(e.target&&e.target.id==="limin"){LIMIT=Math.max(0,parseFloat(e.target.value)||0);LS.set("eb_limit",LIMIT);if(S.tab==="watch")draw()}});
 $("#openSet").addEventListener("click",()=>{drawSet();$("#set").showModal()});
 $("#refresh").addEventListener("click",()=>{const t=S.tab;if(t==="fresh"||t==="hot")refresh(t,true);else if(t==="watch")loadQuotes();else if(t==="record")loadHist();else doCheck()});
 for(const id of ["coin","set","buy"]){const dl=$("#"+id);dl.addEventListener("click",e=>{if(e.target===dl)dl.close()});dl.addEventListener("close",()=>{if(id==="coin"){S.open=null;draw()}})}
