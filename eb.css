@@ -546,3 +546,22 @@ footer{margin-top:28px}
 .cline.k-watch{border-left-color:var(--warn)}.cline.k-watch b{color:var(--warn)}
 .cline.k-hold{border-left-color:var(--pass)}.cline.k-hold b{color:var(--pass)}
 .bsig{flex:none;font:800 10px/1 var(--f);text-transform:uppercase;letter-spacing:.06em;padding:3px 6px;border-radius:5px;background:var(--pass);color:#06140d}
+/* ---------- what predicts a dead coin ---------- */
+.pf{padding:12px 0;border-bottom:1px solid var(--rim)}
+.pft{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
+.pft b{font-weight:800;font-size:14.5px}
+.pftag{flex:none;font:800 10.5px/1 var(--f);text-transform:uppercase;letter-spacing:.06em;padding:5px 8px;border-radius:999px;background:color-mix(in srgb,var(--paper) 10%,transparent);color:var(--haze)}
+.pftag.bad{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}.pftag.warn{background:color-mix(in srgb,var(--warn) 16%,transparent);color:var(--warn)}.pftag.ok{background:color-mix(in srgb,var(--pass) 16%,transparent);color:var(--pass)}
+.pfb,.svr{display:grid;grid-template-columns:62px 1fr 40px;gap:10px;align-items:center;padding:3px 0;font-size:12.5px}
+.pfb span,.svr span{color:var(--haze);font-stretch:85%;font-weight:600}
+.pfb i,.svr i{height:8px;border-radius:5px;background:color-mix(in srgb,var(--paper) 8%,transparent);overflow:hidden}
+.pfb em,.svr em{display:block;height:100%;border-radius:5px;background:var(--bad)}
+.pfb.o em{background:var(--dim)}
+.pfb b,.svr b{text-align:right;font-weight:800;font-variant-numeric:tabular-nums}
+.pf small{display:block;margin-top:4px;font-size:11.5px;color:var(--dim)}
+.sv{padding:10px 0 12px;border-bottom:1px solid var(--rim)}
+.sv>b{display:block;font-weight:800;font-size:14px;margin-bottom:6px}
+.svr{grid-template-columns:104px 1fr 40px 30px}
+.svr small{text-align:right;color:var(--dim);font-size:11px}
+.svr em{background:color-mix(in srgb,var(--bad) 70%,transparent)}
+.svr.best span{color:var(--pass)}.svr.best em{background:var(--pass)}

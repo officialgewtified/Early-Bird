@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-title" content="Early Bird">
 <link rel="preload" href="fonts/archivo-x.woff" as="font" type="font/woff" crossorigin>
 <link rel="preload" href="fonts/big-shoulders.woff" as="font" type="font/woff" crossorigin>
-<link rel="stylesheet" href="eb.css?v=17">
+<link rel="stylesheet" href="eb.css?v=18">
 <script>/* put the saved look on before anything draws, so there's no flash */try{var o=JSON.parse(localStorage.getItem("eb_set")||"{}"),t=o.theme||"studio";if(o.silk)document.documentElement.classList.add("silk-on");if(t!=="night")document.documentElement.dataset.theme=t;if(t==="custom"&&o.custom)document.documentElement.style.background=o.custom.bg}catch(e){}</script>
 </head>
 <body>
@@ -45,7 +45,7 @@
 <dialog id="set" aria-label="Settings"><div class="sheet set" id="setsheet"></div></dialog>
 <dialog id="buy" aria-label="Log a buy"><div class="sheet" id="buysheet"></div></dialog>
 
-<script src="eb-core.js?v=4"></script>
+<script src="eb-core.js?v=5"></script>
 <script>
 "use strict";
 /* ---------- basics ---------- */
@@ -123,7 +123,9 @@ function planAlerts(){let ch=false;for(const b of BUYS){const p=planOf(b);if(!p|
 function planMeter(b){const p=planOf(b);if(!p)return"";const lg=Math.log,pos=x=>Math.max(0,Math.min(100,(lg(x)-lg(.4))/(lg(7)-lg(.4))*100)).toFixed(1);
  return `<div class="pm"><div class="pmt"><i class="pmz" style="left:0;width:${pos(.6)}%"></i><i class="pmg" style="left:${pos(2)}%;right:0"></i>${[[.6,"−40%"],[1,"In"],[2,"2x"],[5,"5x"]].map(([x,l])=>`<span class="pmk" style="left:${pos(x)}%"><em>${l}</em></span>`).join("")}<b class="pmd ${p.x>=1?"g":"r"}" style="left:${pos(p.x)}%"></b></div>
   ${p.hit?`<div class="pmh ${p.hit[0]==="up"?"g":"r"}">${esc(p.hit[2])}</div>`:`<div class="pmn">Now <b class="${cls(p.x-1)}">${p.x.toFixed(2)}x</b>. Plan: half at 2x, most at 5x, out at −40%.</div>`}</div>`}
-async function loadHist(){try{const r=await fetch("history.json",{cache:"no-store"});S.hist=r.ok?await r.json():{rows:[]}}catch(e){S.hist={rows:[]}}drawIf("record")}
+async function loadHist(){try{const r=await fetch("history.json",{cache:"no-store"});S.hist=r.ok?await r.json():{rows:[]}}catch(e){S.hist={rows:[]}}
+ try{const r=await fetch("insights.json",{cache:"no-store"});S.ins=r.ok?await r.json():null}catch(e){S.ins=null}
+ drawIf("record");drawIf("coach")}
 
 /* ---------- pieces ---------- */
 // DEX Screener's image server won't show its pictures on other sites, so those go through a free image proxy
@@ -566,11 +568,11 @@ function sigCard({c,sg}){const p=c.mcap;
   <ul class="cwhy">${sg.why.slice(0,3).map(t=>`<li class="w-up">${esc(t)}</li>`).join("")}${sg.warn?`<li class="w-dn">${esc(sg.warn)}</li>`:""}</ul>
   ${p?`<div class="sgplan"><span>Half at <b>${money(p*2)}</b></span><span>Most at <b>${money(p*5)}</b></span><span>Out at <b class="dn">${money(p*.6)}</b></span></div>`:""}
   <div class="btns"><a class="cta" href="${esc(buyAt()[1](c.mint))}" target="_blank" rel="noopener noreferrer">Buy on ${buyAt()[0]}</a><button class="btn" data-pbuy="${esc(c.mint)}|25" ${!c.price||PAPER.cash<25?"disabled":""}>Practice $25</button></div></div>`}
-function coachRecord(){const R=((S.hist&&S.hist.rows)||[]).filter(x=>x.bs!=null);let h="";
- const K=[["c1","1 hour"],["c6","6 hours"],["c24","1 day"]].map(([k,l])=>[l,stats(R.filter(x=>x.bs>0),k),stats(R.filter(x=>x.bs===0),k)]).filter(x=>x[1]&&x[1].n>=5);
+function coachRecord(){const R=((S.hist&&S.hist.rows)||[]).filter(x=>x.bs!=null);let h="";const IC=S.ins&&S.ins.coach;
+ const K=[["c1","1 hour"],["c6","6 hours"],["c24","1 day"]].map(([k,l])=>IC&&IC[k]&&IC[k].sig.n>=5?[l,IC[k].sig,IC[k].rest]:[l,stats(R.filter(x=>x.bs>0),k),stats(R.filter(x=>x.bs===0&&!x.h),k)]).filter(x=>x[1]&&x[1].n>=5&&x[2]&&x[2].n);
  if(!K.length)h+=`<p class="fine">Early Bird's hourly record started writing down the coach's buy signals today (${R.filter(x=>x.bs>0).length} signals so far). In a few days this shows whether coins it flagged really did better than the rest. Until then, treat its calls as untested.</p>`;
  else h+=`<div class="crec">${K.map(([l,a,b])=>`<div class="cr"><span>${l} later</span><div><b class="${a.up>b.up?"up":""}">${Math.round(a.up*100)}%</b> of signals up, typical <em class="${cls(a.med)}">${pct(a.med*100)}</em></div><div class="fine">Everything else: ${Math.round(b.up*100)}% up, typical ${pct(b.med*100)}</div></div>`).join("")}</div>
-  <p class="fine">${K[K.length-1][1].up>K[K.length-1][2].up+.05?"So far its signals have beaten the rest.":"So far its signals haven't clearly beaten the rest, so don't lean on them."} From ${R.filter(x=>x.bs>0).length} signals in the record. Past results don't promise future ones.</p>`;
+  <p class="fine">${K[K.length-1][1].up>K[K.length-1][2].up+.05?"So far its signals have beaten the rest.":"So far its signals haven't clearly beaten the rest, so don't lean on them."} From ${K[K.length-1][1].n} signals in the record. Past results don't promise future ones.</p>`;
  return h}
 function roboHTML(){const v=paperValue(ROBO),pl=v-ROBO.start,H=ROBO.hist,open=Object.keys(ROBO.pos).length,won=H.filter(x=>x.out>x.in).length;
  return `<div class="robo"><div class="rt"><div><b>Let the coach trade</b><small>Its own $1,000 of practice money, kept apart from yours</small></div><button class="tog ${COACH.auto?"on":""}" data-coachauto aria-pressed="${COACH.auto}"><i></i></button></div>
@@ -608,7 +610,7 @@ function posOf(b){const q=S.quotes[b.m];if(b.sold)return{val:+b.sold.usd,pl:+b.s
  if(!q||!q.price||!b.p)return{val:null,pl:null,gone:!!S.qAt&&!S.qFail&&!q};const val=b.usd*(b.half?.5:1)*q.price/b.p+(b.half?+b.halfUsd||0:0);return{val,pl:val-b.usd}}
 function alertsOf(w){const q=S.quotes[w.m];if(!S.qAt||S.qFail)return null;
  if(!q)return"Its trading pool is gone. That usually means the creator pulled the money (a rug pull).";
- if(w.lq&&q.liq<w.lq*.5)return`Its pool dropped ${Math.round((1-q.liq/w.lq)*100)}% since you added it. That can be a rug pull starting.`;return null}
+ if(w.lq&&q.liq&&!q.curve&&q.liq<w.lq*.5)return`Its pool dropped ${Math.round((1-q.liq/w.lq)*100)}% since you added it. That can be a rug pull starting.`;return null}
 const hasAlerts=()=>WATCH.some(w=>alertsOf(w))||BUYS.some(b=>!b.sold&&alertsOf(b));
 function watchView(){const open=BUYS.filter(b=>!b.sold),done=BUYS.filter(b=>b.sold);
  let h=`<h2 class="pt" style="margin-top:18px">Watch</h2><p class="sub">Coins you're watching and the ones you bought, with live prices. If a pool suddenly drains, it shows up here.</p>`;
@@ -679,7 +681,30 @@ function recordView(){const H=S.hist;let h=`<h2 class="pt" style="margin-top:18p
   <p class="fine">Passed and Caution coins, ${lab} later. ${top.up>rest.up+.05?"So far the higher scores have done better.":top.up<rest.up-.05?"So far the higher scores have done worse, so don't lean on the score.":"So far the score hasn't made much difference."} With this few coins, luck plays a big part.</p>`}
  const B=R.filter(x=>x[k]&&x.v!=="sketchy").sort((a,b)=>b[k][0]-a[k][0]);
  if(B.length>=5)h+=`<h3 class="h3">Best and worst calls</h3>${[...B.slice(0,4),...B.slice(-3).reverse()].map(x=>`<div class="call v-${x.v}"><span><b>$${esc(x.s)}</b><small>${VERDICT[x.v]}, score ${x.sc}</small></span><span class="cv ${cls(x[k][0])}">${pct(x[k][0]*100)}</span></div>`).join("")}`;
+ h+=insightsHTML();
  h+=`<p class="fine" style="margin-top:14px">Prices are from DEX Screener at each check. Past results don't promise future ones, and meme coins can swing either way in minutes.</p>`;
+ return h}
+/* what the record says predicts a dead coin, from insights.json (worked out every hour from up to 60 days of finished coins) */
+const FLAGN={bots:"Mostly bot trading",creator:"Creator launches lots of coins","creator!":"Creator has rugged before",dev:"Creator holds a big bag","dev!":"Creator holds a huge bag",
+ few:"Very few holders",freeze:"Creator can freeze wallets","freeze!":"Creator can freeze wallets",holders:"A few wallets hold a lot","holders!":"A few wallets hold most of it",
+ liqsize:"Thin pool","liqsize!":"Tiny pool",lp:"Pool money not all locked","lp!":"Pool money isn't locked",mint:"Creator can make more coins","mint!":"Creator can make more coins",
+ ran:"Already pumped hard",sell:"Nobody sold in the last hour","sell!":"Nobody sold in the last hour",socials:"No socials",trap:"Creator can close token accounts","trap!":"A trap: fees, hooks or can't send",
+ meta:"Name and picture can be changed",insiders:"Wallets look linked","insiders!":"Wallets look linked",copycat:"Copycat name","copycat!":"Copycat name"};
+const flagName=f=>FLAGN[f]||(String(f).startsWith("rc:")?String(f).slice(3):f);
+function insightsHTML(){const I=S.ins;if(!I||!I.base||!I.base.n)return"";const lab={c24:"a day",c6:"6 hours",c1:"an hour"}[I.k]||"later";
+ if(I.base.n<30)return `<h3 class="h3">What predicts a dead coin</h3><p class="fine">This needs about 30 finished coins and has ${I.base.n}. It fills in over the next few days.</p>`;
+ const F=(I.flags||[]).filter(x=>x.with.n>=8&&x.without.n>=8);
+ const tag=d=>d>=.15?["bad","Big red flag"]:d>=.05?["warn","Red flag"]:d>-.05?["","Barely matters"]:["ok","Not a bad sign here"];
+ let h=`<h3 class="h3">What predicts a dead coin</h3><p class="sub">Out of ${I.base.n.toLocaleString()} coins, <b>${Math.round(I.base.dead*100)}%</b> were dead ${lab} later. Here's how often coins with each warning died, next to coins without it.</p>`;
+ h+=F.slice(0,10).map(x=>{const d=x.with.dead-x.without.dead,t=tag(d);return `<div class="pf"><div class="pft"><b>${esc(flagName(x.f))}</b><span class="pftag ${t[0]}">${t[1]}</span></div>
+  <div class="pfb"><span>With it</span><i><em style="width:${(x.with.dead*100).toFixed(0)}%"></em></i><b>${Math.round(x.with.dead*100)}%</b></div>
+  <div class="pfb o"><span>Without</span><i><em style="width:${(x.without.dead*100).toFixed(0)}%"></em></i><b>${Math.round(x.without.dead*100)}%</b></div>
+  <small>${x.with.n} coins had it</small></div>`}).join("")||`<p class="fine">No warning has shown up on enough coins yet to compare.</p>`;
+ const B=I.buckets||{},G=[["pool","Pool size when first seen"],["top10","Top 10 wallets hold"],["age","Age when first seen"],["mcap","Market cap when first seen"],["score","Early score"]];
+ h+=`<h3 class="h3">What the survivors had</h3><p class="sub">How often each kind of coin was dead ${lab} later. Lower is better.</p>`;
+ h+=G.filter(([k])=>(B[k]||[]).some(b=>b.n>=8)).map(([k,l])=>{const rows=B[k].filter(b=>b.n>=8),best=Math.min(...rows.map(b=>b.dead));
+  return `<div class="sv"><b>${l}</b>${rows.map(b=>`<div class="svr ${b.dead===best?"best":""}"><span>${esc(b.l)}</span><i><em style="width:${(b.dead*100).toFixed(0)}%"></em></i><b>${Math.round(b.dead*100)}%</b><small>${b.n}</small></div>`).join("")}</div>`}).join("");
+ h+=`<p class="fine">Dead means it fell 90% or its pool lost 80%. A pattern from a few dozen coins can be luck, so these firm up as the record grows. Early Bird keeps finished coins for 60 days.</p>`;
  return h}
 
 /* ---------- settings ---------- */

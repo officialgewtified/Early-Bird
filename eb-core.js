@@ -246,7 +246,7 @@ async function checkOne(get,input,now){now=now||Date.now();let mint=parseInput(i
 
 /* current price, pool and market cap for a list of coins (watchlist, buys, and the tracker's re-checks) */
 async function quotes(get,mints,maxAge){const out={},age=maxAge==null?20000:maxAge,miss=[];let failed=0;
- const put=(m,p)=>{out[m]={price:num(p.priceUsd),mcap:num(p.marketCap)??num(p.fdv),liq:num(p.liquidity&&p.liquidity.usd)||0,ch:p.priceChange||{},pairUrl:p.url,sym:p.baseToken.symbol,curve:CURVES.has(p.dexId)}};
+ const put=(m,p)=>{out[m]={price:num(p.priceUsd),mcap:num(p.marketCap)??num(p.fdv),liq:num(p.liquidity&&p.liquidity.usd)||null,ch:p.priceChange||{},pairUrl:p.url,sym:p.baseToken.symbol,curve:CURVES.has(p.dexId)}};
  for(const part of chunk([...new Set(mints)],30)){try{const d=await get(`${DX}/tokens/v1/solana/${part.join(",")}`,age);
    for(const m of part){const p=bestPair(d,m);if(p)put(m,p);else miss.push(m)}}catch(e){miss.push(...part)}}
  // a batch can come back short, so look up the missing ones one at a time before calling a coin gone
