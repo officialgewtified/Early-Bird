@@ -269,6 +269,12 @@ sub{font-size:.72em;vertical-align:-.2em}
 /* ---------- settings ---------- */
 .set h3{margin:0 0 4px;font:900 30.4px/1 var(--fd)}
 .set h4{margin:22px 0 8px;font:900 19px/1.1 var(--fd);color:var(--paper)}
+.swatches{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.sw{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--rim);border-radius:12px;background:var(--night);cursor:pointer}
+.sw input{flex:none;width:34px;height:34px;border:0;padding:0;background:none;border-radius:9px;cursor:pointer}
+.sw input::-webkit-color-swatch-wrapper{padding:0}.sw input::-webkit-color-swatch{border:1px solid color-mix(in srgb,var(--paper) 25%,transparent);border-radius:9px}
+.sw input::-moz-color-swatch{border:1px solid color-mix(in srgb,var(--paper) 25%,transparent);border-radius:9px}
+.sw span{font-weight:700;font-size:13.5px;font-stretch:90%}
 .fld{display:block;margin-top:12px;color:var(--haze);font-size:13px;font-stretch:90%}
 .fld input{display:block;width:100%;margin-top:6px;border:1px solid var(--rim);background:var(--night);color:var(--paper);border-radius:12px;padding:12px;font:700 16px var(--f)}
 
