@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-title" content="Early Bird">
 <link rel="preload" href="fonts/archivo-x.woff" as="font" type="font/woff" crossorigin>
 <link rel="preload" href="fonts/big-shoulders.woff" as="font" type="font/woff" crossorigin>
-<link rel="stylesheet" href="eb.css?v=16">
+<link rel="stylesheet" href="eb.css?v=17">
 <script>/* put the saved look on before anything draws, so there's no flash */try{var o=JSON.parse(localStorage.getItem("eb_set")||"{}"),t=o.theme||"studio";if(o.silk)document.documentElement.classList.add("silk-on");if(t!=="night")document.documentElement.dataset.theme=t;if(t==="custom"&&o.custom)document.documentElement.style.background=o.custom.bg}catch(e){}</script>
 </head>
 <body>
@@ -32,6 +32,7 @@
 <nav class="dock" aria-label="Sections"><div class="in" role="tablist">
  <button data-tab="fresh" role="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12l6-5"/><circle cx="16.5" cy="15.5" r="1.3" fill="currentColor" stroke="none"/></svg>Fresh</button>
  <button data-tab="hot" role="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3c1 3.5 5.5 5.5 5.5 10.5A5.5 5.5 0 0 1 12 19a5.5 5.5 0 0 1-5.5-5.5c0-2.5 1.5-4 2.5-5 .2 2 1 3 2 3.5C11 9 11.5 5.5 12 3z"/><path d="M12 19a2.2 2.2 0 0 1-2.2-2.2c0-1.4 1.4-2.2 2.2-3.6.8 1.4 2.2 2.2 2.2 3.6A2.2 2.2 0 0 1 12 19z"/></svg>Hot</button>
+ <button data-tab="coach" role="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12.5h4l2.5-6 4.5 12 3-7.5 1.5 1.5h3.5"/></svg>Coach</button>
  <button data-tab="check" role="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7.5 3v5.5c0 4.3-3 7.7-7.5 9.5-4.5-1.8-7.5-5.2-7.5-9.5V6z"/><path d="M8.6 12.2l2.4 2.4 4.6-4.8"/></svg>Check</button>
  <button data-tab="watch" role="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>Watch</button>
  <button data-tab="record" role="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 20h16"/><path d="M7 16v-5M12 16V6M17 16v-8"/></svg>Record</button>
@@ -44,7 +45,7 @@
 <dialog id="set" aria-label="Settings"><div class="sheet set" id="setsheet"></div></dialog>
 <dialog id="buy" aria-label="Log a buy"><div class="sheet" id="buysheet"></div></dialog>
 
-<script src="eb-core.js?v=3"></script>
+<script src="eb-core.js?v=4"></script>
 <script>
 "use strict";
 /* ---------- basics ---------- */
@@ -98,7 +99,7 @@ let WATCH=LS.get("eb_watch",[]),BUYS=LS.get("eb_buys",[]),RECENT=LS.get("eb_rece
 const S={tab:LS.get("eb_tab","fresh"),fresh:null,hot:null,busy:{},err:{},sort:LS.get("eb_sort","score"),off:{},
  check:{q:"",c:null,busy:false,err:""},feat:{},charts:{},tf:"8h",quotes:{},qAt:0,qFail:0,hist:null,seen:{},open:null};
 const COINS=new Map();             // every coin looked at this visit, by address
-if(!["fresh","hot","check","watch","record"].includes(S.tab))S.tab="fresh";
+if(!["fresh","hot","coach","check","watch","record"].includes(S.tab))S.tab="fresh";
 function toast(t){const f=$("#float");f.innerHTML=`<div class="toast" role="status">${esc(t)}</div>`;clearTimeout(toast.t);toast.t=setTimeout(()=>{f.innerHTML=""},2600)}
 const ago=t=>{const s=Math.max(0,Math.round((Date.now()-t)/1000));return s<5?"just now":s<60?s+"s ago":s<3600?Math.round(s/60)+"m ago":Math.round(s/3600)+"h ago"};
 
@@ -110,8 +111,8 @@ async function refresh(mode,manual){if(S.busy[mode])return;S.busy[mode]=true;S.e
   S.seen[mode]=new Set([...(prev||[]),...r.coins.map(c=>c.mint)]);S[mode]=r;
   const n=r.coins.filter(c=>c.isNew&&c.verdict==="passed").length;if(n&&S.tab===mode&&prev)toast(`${n} new coin${n>1?"s":""} passed the checks`);
  }catch(e){S.err[mode]="Couldn't reach the coin data. Check your connection and pull down to try again."}
- S.busy[mode]=false;drawIf(mode)}
-async function loadQuotes(){const ms=[...new Set([...WATCH.map(w=>w.m),...BUYS.filter(b=>!b.sold).map(b=>b.m),...Object.keys(PAPER.pos)])];if(!ms.length){S.qAt=Date.now();return}
+ S.busy[mode]=false;drawIf(mode);if(S.tab==="coach")draw();if(COACH.auto)robot()}
+async function loadQuotes(){const ms=[...new Set([...WATCH.map(w=>w.m),...BUYS.filter(b=>!b.sold).map(b=>b.m),...Object.keys(PAPER.pos),...Object.keys(ROBO.pos)])];if(!ms.length){S.qAt=Date.now();return}
  S.qBusy=true;try{const{q,failed}=await EB.quotes(get,ms,15000);S.quotes=Object.assign(S.quotes,q);S.qFail=failed;S.qAt=Date.now()}catch(e){}S.qBusy=false;planAlerts();drawIf("watch")}
 /* the exit plan on logged buys: half at 2x, most at 5x, out at -40%. Tells you once when a line is crossed (while the site is open) */
 function planOf(b){const q=S.quotes[b.m];if(b.sold||!q||!q.price||!b.p)return null;const x=q.price/b.p;
@@ -136,7 +137,7 @@ function why(c){const B=bad(c),W=warns(c),f=(cl,ic,t)=>`<span class="fl"><span c
 const sig=n=>`<span class="sig" aria-hidden="true">${[1,2,3,4,5].map(i=>`<i class="${n>=i*20-10?"on":""}"></i>`).join("")}</span>`;
 function row(c){const ch=EB.chg(c,"h1");
  return `<button class="row v-${c.verdict}" data-coin="${esc(c.mint)}">${avatar(c)}
- <span style="min-width:0"><span class="r1"><b>${esc(c.name||c.sym)}</b><span class="sym">$${esc(c.sym)}</span>${c.isNew?'<span class="nw">New</span>':""}</span>
+ <span style="min-width:0"><span class="r1"><b>${esc(c.name||c.sym)}</b><span class="sym">$${esc(c.sym)}</span>${c.isNew?'<span class="nw">New</span>':""}${sigOf(c).lvl?'<span class="bsig">Signal</span>':""}</span>
   <span class="r2"><span><b>${ageTxt(c.ageH)}</b> old</span><span>MC <b>${money(c.mcap)}</b></span><span>Pool <b>${c.curve?"curve":money(c.liq)}</b></span>${ch!=null?`<span class="${cls(ch)}">${pct(ch)} 1h</span>`:""}</span>
   <span class="r3"><span class="vw">${VERDICT[c.verdict]}</span>${why(c)}</span></span>
  <span class="rs" aria-label="Early score ${c.score}">${sig(c.score)}<b>${c.score}</b></span></button>`}
@@ -209,7 +210,7 @@ function listView(mode){const r=S[mode],fresh=mode==="fresh";
 /* ---------- one coin ---------- */
 const BUYAT={fomo:["Fomo",m=>`https://fomo.family/tokens/solana/${m}`],jup:["Jupiter",m=>`https://jup.ag/swap/SOL-${m}`],phantom:["Phantom",m=>`https://phantom.com/tokens/solana/${m}`]};
 const buyAt=()=>BUYAT[SET.buy]||BUYAT.fomo;
-function likeLine(c){const R=(S.hist&&S.hist.rows)||[];if(!R.length)return"";
+function likeLine(c){const R=((S.hist&&S.hist.rows)||[]).filter(x=>!x.h);if(!R.length)return"";
  const lo=Math.max(0,c.score-12),hi=Math.min(99,c.score+12),k=R.filter(x=>x.c24).length>=40?"c24":"c6",lab=k==="c24"?"24 hours":"6 hours";
  const M=R.filter(x=>x.v===c.verdict&&x.sc>=lo&&x.sc<=hi&&x[k]);
  if(M.length<15)return `<div class="like">Not enough coins like this in Early Bird's record yet to say how they usually do. <span class="fine">(${M.length} so far)</span></div>`;
@@ -231,7 +232,7 @@ function coinBody(c,loading){const w=WATCH.some(x=>x.m===c.mint),hc=c.st&&c.st.h
  </div><div class="chartbox" data-mint="${me}">${chartHTML(c)}</div><div class="cs-rest">
  <div class="moves">${["m5","h1","h6","h24"].map(k=>{const x=EB.chg(c,k);return `<span>${k.slice(1)}${k[0]}<b class="${cls(x)}">${pct(x)}</b></span>`}).join("")}</div>
  <div class="ctabs" role="tablist">${T.map(([k,l])=>`<button class="ctab ${tab===k?"on":""}" data-ctab="${k}" role="tab" aria-selected="${tab===k}">${l}${k==="safe"&&(nb||nw)?`<i class="${nb?"b":"w"}">${nb||nw}</i>`:""}</button>`).join("")}</div>
- ${pane("over",`<h4 class="h3">What's going on</h4><div class="readbox" data-mint="${me}">${readHTML(c)}</div>
+ ${pane("over",`${coachLine(c)}<h4 class="h3">What's going on</h4><div class="readbox" data-mint="${me}">${readHTML(c)}</div>
   <h4 class="h3">How long to hold</h4>${timingHTML(c)}
   <h4 class="h3">The numbers</h4><div class="readout">${ro("Market cap",money(c.mcap))}${ro("Pool",c.curve?"Curve":money(c.liq))}${ro("Holders",c.holders!=null?c.holders.toLocaleString():"–",hc!=null?`<em class="${cls(hc)}">${pct(hc)} 1h</em>`:"")}${ro("Top 10 hold",c.top10!=null?c.top10.toFixed(0)+"%":"–")}
    ${ro("Creator holds",c.devPct!=null?(c.devPct<.1?"~0%":c.devPct.toFixed(1)+"%"):"–")}${ro("Real traders",c.organicLabel?c.organicLabel[0].toUpperCase()+c.organicLabel.slice(1):"–")}${ro("Traded 1h",v!=null?money(v):"–")}${ro("Safety",VERDICT[c.verdict])}</div>
@@ -377,13 +378,13 @@ function readOf(c){const it=[],add=(w,d,t)=>it.push({w,d,t}),now=Date.now(),s1=c
   if(vc!=null&&vc<=-50)add(-1,"dn",`Trading is drying up: volume is down ${Math.abs(vc).toFixed(0)}% from the hour before.`);
   else if(vc!=null&&vc>=100)add(1,"up",`Trading picked up: volume is ${(1+vc/100).toFixed(1)}x the hour before.`);
   if(!c.curve&&lc!=null&&lc<=-15)add(-1,"dn",`The pool shrank ${Math.abs(lc).toFixed(0)}% this hour, so money is leaving it.`);
-  if(tv>=5000&&s1.buyOrganicVolume!=null){const org=((+s1.buyOrganicVolume||0)+(+s1.sellOrganicVolume||0))/tv;if(org<.12)add(-1,"dn",`Most of the trading looks like bots: only about ${Math.max(1,Math.round(org*100))}% looks like real people.`)}}
+  if(tv>=5000&&c.organic!=null&&c.organic<20)add(-1,"dn",`Jupiter rates the trading as mostly bots (organic score ${Math.round(c.organic)} out of 100).`)}
  const h1=EB.chg(c,"h1"),h6=EB.chg(c,"h6"),h24=EB.chg(c,"h24"),net=it.reduce((s,x)=>s+x.w,0),run=Math.max(h6||0,h24||0);
  if(run>=150&&net<0)add(-1,"dn",`It's up ${pct(run)} in ${(h6||0)>=150?"6":"24"} hours, so early buyers are likely cashing in.`);
  else if(h1!=null&&h1<=-20&&net>0)add(1,"up",`It fell ${pct(h1)} this hour and buyers are stepping in on the dip.`);
  const n2=it.reduce((s,x)=>s+x.w,0),vc=s1&&s1.volumeChange;
  const head=creatorSold?["dn","The creator is selling"]:n2>=3?["up","Buyers in control"]:n2<=-3?["dn","Sellers in control"]:!it.length?["mid","Too quiet to read"]:vc!=null&&vc<=-50?["mid","Cooling off"]:["mid","Tug of war"];
- return{head,it:it.sort((a,b)=>Math.abs(b.w)-Math.abs(a.w)).slice(0,6),live:!!win}}
+ return{head,net:n2,creatorSold,it:it.sort((a,b)=>Math.abs(b.w)-Math.abs(a.w)).slice(0,6),live:!!win}}
 function readHTML(c){const r=readOf(c),k=TR[c.mint];
  return `<div class="read t-${r.head[0]}"><div class="rh"><i></i><b>${r.head[1]}</b></div>
   ${r.it.length?`<ul class="why">${r.it.map(x=>`<li class="w-${x.d}"><span>${x.d==="up"?"▲":x.d==="dn"?"▼":"•"}</span>${esc(x.t)}</li>`).join("")}</ul>`:`<p class="fine">Not enough trading yet to say which way it's leaning.</p>`}
@@ -391,7 +392,7 @@ function readHTML(c){const r=readOf(c),k=TR[c.mint];
 function paintRead(c){document.querySelectorAll(`.readbox[data-mint="${CSS.escape(c.mint)}"]`).forEach(el=>{el.innerHTML=readHTML(c)})}
 
 /* how long coins like this ran, from Early Bird's own record, plus a simple exit plan in this coin's numbers */
-function timingHTML(c){const R=(S.hist&&S.hist.rows)||[],K=[["c1","1 hour"],["c3","3 hours"],["c6","6 hours"],["c12","12 hours"],["c24","1 day"]];
+function timingHTML(c){const R=((S.hist&&S.hist.rows)||[]).filter(x=>!x.h),K=[["c1","1 hour"],["c3","3 hours"],["c6","6 hours"],["c12","12 hours"],["c24","1 day"]];
  let M=R.filter(x=>x.v===c.verdict&&Math.abs(x.sc-c.score)<=12),lab=`${VERDICT[c.verdict]} coins with an Early score near ${c.score}`;
  if(M.filter(x=>x.c1).length<15){M=R.filter(x=>x.v===c.verdict);lab=`${VERDICT[c.verdict]} coins`}
  const rows=K.map(([k,l])=>{const st=stats(M,k);return st&&st.n>=10?Object.assign({k,l},st):null}).filter(Boolean);
@@ -410,22 +411,22 @@ function timingHTML(c){const R=(S.hist&&S.hist.rows)||[],K=[["c1","1 hour"],["c3
 function numbersHTML(c){const st={};for(const k of ["m5","h1","h6","h24"])st[k]=(c.st&&c.st[k])||(c.tx&&c.tx[k]?{numBuys:c.tx[k].buys,numSells:c.tx[k].sells,vol:c.vol&&c.vol[k]}:null);
  const K=[["m5","5m"],["h1","1h"],["h6","6h"],["h24","24h"]].filter(([k])=>st[k]);if(!K.length)return"";
  const n=v=>v==null?"–":v>=1e4?Math.round(v/100)/10+"K":Math.round(v).toLocaleString(),sg=v=>v==null?"–":`<span class="${cls(v)}">${v>0?"+":v<0?"-":""}${n(Math.abs(v))}</span>`;
- const org=s=>{const t=(+s.buyVolume||0)+(+s.sellVolume||0);return t&&s.buyOrganicVolume!=null?Math.round(((+s.buyOrganicVolume||0)+(+s.sellOrganicVolume||0))/t*100)+"%":"–"};
  const R=[["Traders",s=>n(s.numTraders)],["Buys",s=>n(s.numBuys)],["Sells",s=>n(s.numSells)],["Net buyers",s=>sg(s.numNetBuyers)],["Traded",s=>s.vol!=null?money(+s.vol):"–"],["Bought",s=>s.buyVolume!=null?money(+s.buyVolume):"–"],["Sold",s=>s.sellVolume!=null?money(+s.sellVolume):"–"],
-  ["Real people",org],["Holders",s=>s.holderChange!=null?`<span class="${cls(s.holderChange)}">${pct(s.holderChange)}</span>`:"–"],["Pool",s=>c.curve?"–":s.liquidityChange!=null?`<span class="${cls(s.liquidityChange)}">${pct(s.liquidityChange)}</span>`:"–"]];
+["Holders",s=>s.holderChange!=null?`<span class="${cls(s.holderChange)}">${pct(s.holderChange)}</span>`:"–"],["Pool",s=>c.curve?"–":s.liquidityChange!=null?`<span class="${cls(s.liquidityChange)}">${pct(s.liquidityChange)}</span>`:"–"]];
  return `<div class="numsw"><table class="nums"><thead><tr><th></th>${K.map(([,l])=>`<th>${l}</th>`).join("")}</tr></thead><tbody>${R.map(([l,f])=>[l,K.map(([k])=>f(st[k]))]).filter(([,v])=>v.some(x=>x!=="–")).map(([l,v])=>`<tr><th>${l}</th>${v.map(x=>`<td>${x}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
-  <p class="fine">${c.st&&c.st.h1?"From Jupiter. “Real people” is the share of trading Jupiter counts as organic, not bots.":"From DEX Screener."}</p>`}
+  <p class="fine">${c.st&&c.st.h1?"From Jupiter.":"From DEX Screener."}</p>`}
 
-/* paper trading: practice with fake money at live prices */
-let PAPER=LS.get("eb_paper",null)||{cash:1000,start:1000,pos:{},hist:[]};
-const savePaper=()=>LS.set("eb_paper",PAPER);
+/* paper trading: practice with fake money at live prices. Yours, and a separate $1,000 the coach can trade by itself */
+const freshAcct=()=>({cash:1000,start:1000,pos:{},hist:[]});
+let PAPER=LS.get("eb_paper",null)||freshAcct(),ROBO=LS.get("eb_robo",null)||freshAcct();
+const savePaper=A=>{if(A===ROBO)LS.set("eb_robo",ROBO);else LS.set("eb_paper",PAPER)};
 const priceOf=m=>{const q=S.quotes[m];if(q&&q.price)return q.price;const c=COINS.get(m);return c&&c.price||null};
-function paperBuy(m,usd){const c=COINS.get(m),p=c&&c.price;if(!p||!(usd>0)||usd>PAPER.cash+1e-9)return false;
- const o=PAPER.pos[m]||{m,s:c.sym,n:c.name,icon:c.icon,qty:0,cost:0,t:Date.now()};o.qty+=usd/p;o.cost+=usd;PAPER.pos[m]=o;PAPER.cash-=usd;savePaper();return true}
-function paperSell(m,f){const o=PAPER.pos[m],p=priceOf(m);if(!o||!p)return false;const q=o.qty*f,out=q*p,cin=o.cost*f;
- PAPER.cash+=out;PAPER.hist.unshift({m,s:o.s,n:o.n,in:cin,out,t0:o.t,t1:Date.now()});PAPER.hist=PAPER.hist.slice(0,80);
- if(f>=.999)delete PAPER.pos[m];else{o.qty-=q;o.cost-=cin}savePaper();return true}
-function paperValue(){let v=PAPER.cash;for(const m in PAPER.pos){const p=priceOf(m),o=PAPER.pos[m];v+=p?o.qty*p:o.cost}return v}
+function paperBuy(m,usd,A=PAPER){const c=COINS.get(m),p=(c&&c.price)||priceOf(m);if(!p||!(usd>0)||usd>A.cash+1e-9)return false;
+ const o=A.pos[m]||{m,s:c?c.sym:"",n:c?c.name:"",icon:c?c.icon:null,qty:0,cost:0,t:Date.now(),lq:c?c.liq:null};o.qty+=usd/p;o.cost+=usd;A.pos[m]=o;A.cash-=usd;savePaper(A);return true}
+function paperSell(m,f,A=PAPER,why){const o=A.pos[m],p=priceOf(m);if(!o||!p)return false;const q=o.qty*f,out=q*p,cin=o.cost*f;
+ A.cash+=out;A.hist.unshift({m,s:o.s,n:o.n,in:cin,out,t0:o.t,t1:Date.now(),why:why||""});A.hist=A.hist.slice(0,80);
+ if(f>=.999)delete A.pos[m];else{o.qty-=q;o.cost-=cin;if(f>=.45&&f<=.55)o.half=true}savePaper(A);return true}
+function paperValue(A=PAPER){let v=A.cash;for(const m in A.pos){const p=priceOf(m),o=A.pos[m];v+=p?o.qty*p:o.cost}return v}
 function practiceHTML(c){const o=PAPER.pos[c.mint],p=c.price,mint=esc(c.mint);
  let h=`<div class="prac"><div class="prt"><b>Practice</b><span>${money(PAPER.cash)} of fake money free</span></div>`;
  if(o){const val=p?o.qty*p:null,pl=val!=null?val-o.cost:null;
@@ -492,11 +493,119 @@ function checkView(){const k=S.check;
  ${k.c?`<div class="panel">${coinBody(k.c)}</div>`:""}
  ${RECENT.length&&!k.c?`<h3 class="h3">Recently checked</h3><div class="rows">${RECENT.map(x=>`<button class="row v-${esc(x.v)}" data-coin="${esc(x.m)}">${avatar({icon:x.icon,sym:x.s})}<span style="min-width:0"><span class="r1"><b>${esc(x.n||x.s)}</b><span class="sym">$${esc(x.s)}</span></span><span class="r2"><span>Checked ${ago(x.t)}</span></span><span class="r3"><span class="vw">${VERDICT[x.v]||""}</span></span></span><span class="rs">${sig(x.sc||0)}<b>${x.sc??"–"}</b></span></button>`).join("")}</div>`:""}`}
 
+/* ---------- Coach: live buy signals, a call on every coin you hold, and a robot that can trade its own practice money ----------
+   Every call comes from fixed rules on the live numbers (the same ones you can read on each coin). They're signals, not promises. */
+let COACH=Object.assign({auto:false,stake:25,max:8,mints:[]},LS.get("eb_coach",{}));const saveCoach=()=>LS.set("eb_coach",COACH);
+let CALLS=LS.get("eb_calls",{});      // the last call shown for each coin you hold, so a change only pings you once
+const CS={};                          // live Jupiter stats for coins you hold
+const sigOf=c=>c?EB.buySignal(c):{lvl:0,why:[],no:"No data"};
+function buyList(){const seen=new Set(),out=[];for(const m of ["fresh","hot"]){const r=S[m];if(!r)continue;
+  for(const c of r.coins){if(seen.has(c.mint))continue;seen.add(c.mint);const sg=sigOf(c);if(sg.lvl)out.push({c,sg})}}
+ return out.sort((a,b)=>b.sg.lvl-a.sg.lvl||b.c.score-a.c.score)}
+/* everything you hold: buys you logged, your practice coins and the coach's practice coins */
+function holdings(){const P=[];
+ for(const b of BUYS)if(!b.sold)P.push({key:"b:"+b.id,kind:"real",m:b.m,s:b.s,n:b.n,icon:b.icon,p0:b.p,cost:b.usd,t:b.t,lq0:b.lq,half:!!b.half,b});
+ for(const[A,kind]of [[PAPER,"paper"],[ROBO,"robo"]])for(const m in A.pos){const o=A.pos[m];P.push({key:kind[0]+":"+m,kind,m,s:o.s,n:o.n,icon:o.icon,p0:o.qty?o.cost/o.qty:null,cost:o.cost,t:o.t,lq0:o.lq,half:!!o.half,o,A})}
+ return P}
+function liveCoin(m){const c=COINS.get(m)||{mint:m},q=S.quotes[m],st=(CS[m]&&CS[m].st)||c.st||null;
+ return Object.assign({},c,{st,liq:q&&q.liq!=null?q.liq:c.liq,price:q&&q.price||c.price,ch:q&&q.ch&&Object.keys(q.ch).length?q.ch:c.ch,curve:q?q.curve:c.curve})}
+/* the call on one holding: get out, take profit, watch closely or hold */
+function callOf(h){const q=S.quotes[h.m],c=liveCoin(h.m),now=Date.now();
+ if(!S.qAt&&!c.price)return{k:"wait",head:"Checking",why:["Getting the live price…"]};
+ if(S.qAt&&!S.qFail&&!q&&!c.price)return{k:"out",head:"Get out",why:["Its trading pool is gone. That usually means the creator pulled the money (a rug pull)."]};
+ const px=c.price,x=px&&h.p0?px/h.p0:null,r=readOf(c),s1=c.st&&c.st.h1,dn=Math.round((1-(x||1))*100);
+ const plus=r.it.filter(i=>i.d==="up").map(i=>i.t),minus=r.it.filter(i=>i.d==="dn").map(i=>i.t);
+ if(h.lq0&&c.liq!=null&&!c.curve&&c.liq<h.lq0*.5)return{k:"out",head:"Get out",x,why:[`Its pool is down ${Math.round((1-c.liq/h.lq0)*100)}% since you bought. That can be a rug pull starting.`]};
+ if(r.creatorSold)return{k:"out",head:"Get out",x,why:[minus[0]||"The creator is selling.","When the creator dumps, the price rarely comes back."]};
+ if(x!=null&&x<=.6)return{k:"out",head:"Get out",x,why:[`Down ${dn}% from your buy. The plan says cut it here instead of hoping.`,...minus.slice(0,1)]};
+ if(x!=null&&x<.9&&r.net<=-3)return{k:"out",head:"Get out",x,why:["Sellers are in control and you're down. Cutting it now saves what's left.",...minus.slice(0,2)]};
+ if(x!=null&&x>=5)return{k:"tp",head:"Take profit",x,why:[`Up ${x.toFixed(1)}x. The plan says sell most of what's left.`,...minus.slice(0,1)]};
+ if(x!=null&&x>=2&&!h.half)return{k:"tp",head:"Take profit",x,why:[`Up ${x.toFixed(1)}x. Sell half and the rest is free money.`,...minus.slice(0,1)]};
+ if(x!=null&&x>=1.5&&r.net<=-3)return{k:"tp",head:"Take profit",x,why:["You're up and sellers are taking over. Lock some in.",...minus.slice(0,2)]};
+ const fade=s1&&((s1.volumeChange!=null&&s1.volumeChange<=-50)||(s1.holderChange!=null&&s1.holderChange<=-2));
+ if(r.net<=-2||fade)return{k:"watch",head:"Watch closely",x,why:[...minus.slice(0,2),...(fade&&!minus.length?["Momentum is fading: trading or holders are dropping off."]:[]),`If it falls to ${x?money((c.mcap||0)*.6/x):"40% under your buy"} market cap, the plan says get out.`].filter(Boolean)};
+ if(now-h.t>24*36e5&&x!=null&&x<1.2)return{k:"watch",head:"Watch closely",x,why:["It's been a day and it hasn't gone anywhere. Most meme coins fade after their first day."]};
+ return{k:"hold",head:"Hold",x,why:plus.length?plus.slice(0,2):["Nothing worrying right now. The calls update every 30 seconds while the site is open."]}}
+/* keep the data for your holdings fresh, ping you when a call changes, and let the coach trade its practice money */
+let coachBusy=false,coachAt=0,coachTr=0;
+async function coachCycle(force){if(coachBusy||(!force&&Date.now()-coachAt<30000))return;coachBusy=true;coachAt=Date.now();
+ try{const H=holdings(),ms=[...new Set(H.map(h=>h.m))];
+  if(COACH.auto||S.tab==="coach"){for(const m of ["fresh","hot"]){const r=S[m];if(!S.busy[m]&&(!r||Date.now()-r.at>(COACH.auto?120000:90000)))refresh(m)}}
+  if(ms.length){await loadQuotes();
+   try{const d=await get(`https://lite-api.jup.ag/tokens/v2/search?query=${ms.slice(0,50).join(",")}`,45000);
+    for(const j of d||[])CS[j.id]={t:Date.now(),st:{m5:j.stats5m||null,h1:j.stats1h||null,h6:j.stats6h||null,h24:j.stats24h||null}}}catch(e){}
+   if(Date.now()-coachTr>60000){coachTr=Date.now();for(const m of ms.slice(0,4)){const c=COINS.get(m)||{mint:m,pair:null};loadTrades(c)}}}
+  pingCalls();if(COACH.auto)robot()}finally{coachBusy=false}
+ drawIf("coach")}
+const urgent=()=>holdings().some(h=>h.kind!=="robo"&&(CALLS[h.key]==="out"||CALLS[h.key]==="tp"));
+const fm2=v=>"$"+(+v||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+function pingCalls(){let ch=false;for(const h of holdings()){if(h.kind==="robo")continue;const k=callOf(h).k,old=CALLS[h.key];if(k==="wait"||old===k)continue;CALLS[h.key]=k;ch=true;
+  if(old&&(k==="out"||k==="tp")){toast(`$${h.s}: ${k==="out"?"Get out":"Take profit"}${h.kind==="paper"?" (practice)":""}`);buzz()}}
+ if(ch)LS.set("eb_calls",CALLS)}
+const buzz=()=>{if(navigator.vibrate&&(!navigator.userActivation||navigator.userActivation.hasBeenActive)){try{navigator.vibrate([20,60,20])}catch(e){}}};
+function robot(){const acts=[];
+ for(const h of holdings().filter(h=>h.kind==="robo")){const cl=callOf(h);if(cl.k==="wait")continue;const age=Date.now()-h.t;
+  if(cl.k==="out"){if(paperSell(h.m,1,ROBO,"Get out"))acts.push(`sold $${h.s} (get out)`)}
+  else if(cl.k==="tp"&&cl.x>=5){if(paperSell(h.m,1,ROBO,"5x"))acts.push(`sold $${h.s} at ${cl.x.toFixed(1)}x`)}
+  else if(cl.k==="tp"&&!h.half){if(paperSell(h.m,.5,ROBO,"Took half"))acts.push(`sold half of $${h.s}`)}
+  else if(age>24*36e5){if(paperSell(h.m,1,ROBO,"A day passed"))acts.push(`sold $${h.s} after a day`)}}
+ const open=Object.keys(ROBO.pos).length;let room=COACH.max-open;
+ for(const{c,sg}of buyList()){if(room<=0||ROBO.cash<COACH.stake)break;if(COACH.mints.includes(c.mint)||ROBO.pos[c.mint])continue;
+  if(paperBuy(c.mint,COACH.stake,ROBO)){ROBO.pos[c.mint].sig=sg.lvl;savePaper(ROBO);COACH.mints=[c.mint,...COACH.mints].slice(0,300);room--;acts.push(`bought $${COACH.stake} of $${c.sym}`)}}
+ if(acts.length){saveCoach();toast(`Coach (practice): ${acts.slice(0,2).join(", ")}${acts.length>2?` +${acts.length-2} more`:""}`)}}
+function callCard(h){const cl=callOf(h),c=liveCoin(h.m),px=c.price,val=h.kind==="real"?(px&&h.p0?h.cost*(h.half?.5:1)*px/h.p0+(h.b.halfUsd||0):null):(px?h.o.qty*px:null),pl=val!=null?val-h.cost:null;
+ const sellUrl=buyAt()[1](h.m),tag={real:"",paper:"Practice",robo:"Coach's practice"}[h.kind];
+ const acts=h.kind==="real"?`<a class="btn" href="${esc(sellUrl)}" target="_blank" rel="noopener noreferrer">Open in ${buyAt()[0]}</a>${h.half?`<button class="btn" data-sold="${esc(h.b.id)}">I sold the rest</button>`:`<button class="btn" data-halfsold="${esc(h.b.id)}">I sold half</button>`}`
+  :h.kind==="paper"?`<button class="btn" data-psell="${esc(h.m)}|0.5">Sell half</button><button class="btn" data-psell="${esc(h.m)}|1">Sell all</button>`:"";
+ return `<div class="ccard k-${cl.k}"><div class="ct"><button class="cname" data-coin="${esc(h.m)}">${avatar({icon:h.icon,sym:h.s})}<span><b>${esc(h.n||h.s)}</b><small>${tag?tag+" · ":""}${money(h.cost)} in${cl.x?` · ${cl.x.toFixed(2)}x`:""}</small></span></button>
+  <span class="cpl ${cls(pl)}">${pl==null?"–":(pl>=0?"+":"-")+money(Math.abs(pl))}</span></div>
+  <div class="cverd"><b>${cl.head}</b></div><ul class="cwhy">${cl.why.slice(0,3).map(t=>`<li>${esc(t)}</li>`).join("")}</ul>
+  ${acts?`<div class="btns">${acts}</div>`:""}</div>`}
+function sigCard({c,sg}){const p=c.mcap;
+ return `<div class="sigc l${sg.lvl}"><button class="cname" data-coin="${esc(c.mint)}">${avatar(c)}<span><b>${esc(c.name||c.sym)}</b><small>$${esc(c.sym)} · ${ageTxt(c.ageH)} old · MC ${money(c.mcap)}</small></span><span class="sgl">${sg.lvl===2?"Strong":"Okay"}</span></button>
+  <ul class="cwhy">${sg.why.slice(0,3).map(t=>`<li class="w-up">${esc(t)}</li>`).join("")}${sg.warn?`<li class="w-dn">${esc(sg.warn)}</li>`:""}</ul>
+  ${p?`<div class="sgplan"><span>Half at <b>${money(p*2)}</b></span><span>Most at <b>${money(p*5)}</b></span><span>Out at <b class="dn">${money(p*.6)}</b></span></div>`:""}
+  <div class="btns"><a class="cta" href="${esc(buyAt()[1](c.mint))}" target="_blank" rel="noopener noreferrer">Buy on ${buyAt()[0]}</a><button class="btn" data-pbuy="${esc(c.mint)}|25" ${!c.price||PAPER.cash<25?"disabled":""}>Practice $25</button></div></div>`}
+function coachRecord(){const R=((S.hist&&S.hist.rows)||[]).filter(x=>x.bs!=null);let h="";
+ const K=[["c1","1 hour"],["c6","6 hours"],["c24","1 day"]].map(([k,l])=>[l,stats(R.filter(x=>x.bs>0),k),stats(R.filter(x=>x.bs===0),k)]).filter(x=>x[1]&&x[1].n>=5);
+ if(!K.length)h+=`<p class="fine">Early Bird's hourly record started writing down the coach's buy signals today (${R.filter(x=>x.bs>0).length} signals so far). In a few days this shows whether coins it flagged really did better than the rest. Until then, treat its calls as untested.</p>`;
+ else h+=`<div class="crec">${K.map(([l,a,b])=>`<div class="cr"><span>${l} later</span><div><b class="${a.up>b.up?"up":""}">${Math.round(a.up*100)}%</b> of signals up, typical <em class="${cls(a.med)}">${pct(a.med*100)}</em></div><div class="fine">Everything else: ${Math.round(b.up*100)}% up, typical ${pct(b.med*100)}</div></div>`).join("")}</div>
+  <p class="fine">${K[K.length-1][1].up>K[K.length-1][2].up+.05?"So far its signals have beaten the rest.":"So far its signals haven't clearly beaten the rest, so don't lean on them."} From ${R.filter(x=>x.bs>0).length} signals in the record. Past results don't promise future ones.</p>`;
+ return h}
+function roboHTML(){const v=paperValue(ROBO),pl=v-ROBO.start,H=ROBO.hist,open=Object.keys(ROBO.pos).length,won=H.filter(x=>x.out>x.in).length;
+ return `<div class="robo"><div class="rt"><div><b>Let the coach trade</b><small>Its own $1,000 of practice money, kept apart from yours</small></div><button class="tog ${COACH.auto?"on":""}" data-coachauto aria-pressed="${COACH.auto}"><i></i></button></div>
+  <div class="rv"><b class="${cls(pl)}">${fm2(v)}</b><span>${pl>=0?"up":"down"} ${fm2(Math.abs(pl))} · ${open} open · ${H.length} sold${H.length?` · ${won} won`:""}</span></div>
+  <p class="fine">${COACH.auto?`On. It buys $${COACH.stake} of each buy signal (up to ${COACH.max} at once), sells half at 2x, the rest at 5x, on a Get out call or after a day. It only trades while Early Bird is open on your screen.`:"Off. Turn it on to see how the coach's calls do with fake money before you trust them with real money."}</p>
+  ${H.length?`<div class="rh2">${H.slice(0,5).map(x=>`<span><b>$${esc(x.s)}</b> ${x.why?esc(x.why)+", ":""}<em class="${cls(x.out-x.in)}">${pct((x.out/x.in-1)*100)}</em></span>`).join("")}</div>`:""}
+  ${H.length||open?`<button class="more" data-roboreset>Reset the coach's money</button>`:""}</div>`}
+function coachView(){const H=holdings().filter(h=>h.kind!=="robo"),L=buyList(),busy=S.busy.fresh||S.busy.hot;
+ let h=`<h2 class="pt" style="margin-top:18px">Coach</h2><p class="sub">What to look at, and what to do with what you hold, from fixed rules on the live numbers. Signals, not promises: most meme coins still lose. Prove it with practice money first.</p>`;
+ if(H.length){const order={out:0,tp:1,watch:2,hold:3,wait:4};h+=`<h3 class="h3">Your coins</h3>${H.map(h2=>[h2,callOf(h2)]).sort((a,b)=>order[a[1].k]-order[b[1].k]).map(([h2])=>callCard(h2)).join("")}`}
+ h+=`<h3 class="h3">Buy signals${busy?' <i class="spin" style="width:12px;height:12px"></i>':""}</h3>`;
+ if(!S.fresh&&!S.hot)h+=skeleton(2);
+ else if(!L.length)h+=`<div class="empty" style="text-align:left;padding:6px 0 4px">No buy signals right now. That's normal: the rules are strict on purpose, and sitting out is a real choice. It checks again every minute or two.</div>`;
+ else h+=L.slice(0,6).map(sigCard).join("");
+ h+=`<h3 class="h3">The coach's practice money</h3>${roboHTML()}`;
+ h+=`<h3 class="h3">Does the coach work?</h3>${coachRecord()}`;
+ h+=`<details class="rules"><summary>The rules it follows</summary>
+  <p><b>Buy signal.</b> It passed the scam checks (or has one mild warning), the pool is at least $10K, it's trading at least $5K an hour, it isn't already up 150% this hour or down 25%, the top 10 wallets hold under 35%, the creator holds under 10%, and it isn't mostly bots. Then at least 4 of these: most of the money is buying, more wallets buying than selling, holders growing, still being bought in the last 5 minutes, mostly real traders, Early score 60+. Five or more is Strong.</p>
+  <p><b>Get out.</b> The pool drops by half since you bought, the creator sells big, you're down 40%, or you're down and sellers are in control.</p>
+  <p><b>Take profit.</b> 2x: sell half. 5x: sell most of the rest. Up 50% and sellers taking over: lock some in.</p>
+  <p><b>Watch closely.</b> Selling is picking up, trading or holders are dropping off, or it's gone nowhere for a day.</p>
+  <p class="fine">Calls update every 30 seconds while the site is open, and you get a buzz when one changes to Get out or Take profit. It can't see the future, and it can't warn you while the site is closed.</p></details>`;
+ return h}
+
+/* the coach's take at the top of a coin: your call if you hold it, otherwise its buy signal or why there isn't one */
+function coachLine(c){const H=holdings().filter(h=>h.m===c.mint&&h.kind!=="robo");
+ if(H.length){const cl=callOf(H[0]);return `<div class="cline k-${cl.k}"><span>Coach</span><b>${cl.head}</b><small>${esc(cl.why[0]||"")}</small></div>`}
+ const sg=sigOf(c);if(sg.lvl)return `<div class="cline k-buy"><span>Coach</span><b>Buy signal · ${sg.lvl===2?"Strong":"Okay"}</b><small>${esc(sg.why.slice(0,2).join(". "))}.</small></div>`;
+ return `<div class="cline k-none"><span>Coach</span><b>No buy signal</b><small>${esc(sg.no||"")}.</small></div>`}
+
 /* ---------- Watch: watchlist, buys and the weekly limit ---------- */
 function weekStart(){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return d.getTime()}
 const spentWeek=()=>BUYS.filter(b=>b.t>=weekStart()).reduce((a,b)=>a+(+b.usd||0),0);
 function posOf(b){const q=S.quotes[b.m];if(b.sold)return{val:+b.sold.usd,pl:+b.sold.usd-b.usd,done:true};
- if(!q||!q.price||!b.p)return{val:null,pl:null,gone:!!S.qAt&&!S.qFail&&!q};const val=b.usd*q.price/b.p;return{val,pl:val-b.usd}}
+ if(!q||!q.price||!b.p)return{val:null,pl:null,gone:!!S.qAt&&!S.qFail&&!q};const val=b.usd*(b.half?.5:1)*q.price/b.p+(b.half?+b.halfUsd||0:0);return{val,pl:val-b.usd}}
 function alertsOf(w){const q=S.quotes[w.m];if(!S.qAt||S.qFail)return null;
  if(!q)return"Its trading pool is gone. That usually means the creator pulled the money (a rug pull).";
  if(w.lq&&q.liq<w.lq*.5)return`Its pool dropped ${Math.round((1-q.liq/w.lq)*100)}% since you added it. That can be a rug pull starting.`;return null}
@@ -527,7 +636,7 @@ function watchView(){const open=BUYS.filter(b=>!b.sold),done=BUYS.filter(b=>b.so
 function practiceView(){const open=Object.values(PAPER.pos),H=PAPER.hist;
  if(!open.length&&!H.length)return `<h3 class="h3">Practice money</h3><div class="empty" style="text-align:left;padding:4px 0 8px">You have $1,000 of fake money to practice with. Open any coin and tap a Buy button under Practice to try a trade at the live price.</div>`;
  const v=paperValue(),pl=v-PAPER.start;
- let h=`<h3 class="h3">Practice money</h3><div class="pnl"><div><span>Your fake $${PAPER.start.toLocaleString()} is now</span><b class="${cls(pl)}">${money(v)}</b><small>${pl>=0?"Up":"Down"} ${money(Math.abs(pl))} (${pct(pl/PAPER.start*100,1)}). ${money(PAPER.cash)} isn't in a coin.</small></div></div>`;
+ let h=`<h3 class="h3">Practice money</h3><div class="pnl"><div><span>Your fake $${PAPER.start.toLocaleString()} is now</span><b class="${cls(pl)}">${fm2(v)}</b><small>${pl>=0?"Up":"Down"} ${fm2(Math.abs(pl))} (${pct(pl/PAPER.start*100,1)}). ${money(PAPER.cash)} isn't in a coin.</small></div></div>`;
  if(open.length)h+=`<div class="rows" style="margin-top:10px">${open.map(o=>{const p=priceOf(o.m),val=p?o.qty*p:null,d=val!=null?val-o.cost:null;
   return `<button class="row ${d==null?"":d>=0?"v-passed":"v-sketchy"}" data-coin="${esc(o.m)}">${avatar({icon:o.icon,sym:o.s})}<span style="min-width:0"><span class="r1"><b>${esc(o.n||o.s)}</b><span class="sym">$${esc(o.s)}</span></span><span class="r2"><span>In <b>${money(o.cost)}</b></span><span>Now <b>${money(val)}</b></span></span></span><span class="rs"><b class="${cls(d)}">${d==null?"–":(d>=0?"+":"-")+money(Math.abs(d))}</b><span class="since">${val!=null&&o.cost?pct((val/o.cost-1)*100):""}</span></span></button>`}).join("")}</div>`;
  if(H.length){const S2=H.slice().sort((a,b)=>(b.out/b.in)-(a.out/a.in)),best=S2[0],worst=S2[S2.length-1],r=x=>pct((x.out/x.in-1)*100);
@@ -555,7 +664,7 @@ function stack(st){if(!st)return"";const dbl=st.dbl,up=st.up-st.dbl,dead=st.dead
  return `<div class="stack"><i class="s-dbl" style="width:${w(dbl)}"></i><i class="s-up" style="width:${w(up)}"></i><i class="s-dn" style="width:${w(dn)}"></i><i class="s-dead" style="width:${w(dead)}"></i></div>
  <div class="vnums"><span><b>${Math.round(st.up*100)}%</b> up</span><span><b>${Math.round(st.dbl*100)}%</b> doubled</span><span><b>${Math.round(st.dead*100)}%</b> died</span><span>Typical <b class="${cls(st.med)}">${pct(st.med*100)}</b></span></div>`}
 function recordView(){const H=S.hist;let h=`<h2 class="pt" style="margin-top:18px">The record</h2><p class="sub">Every hour Early Bird writes down what the Fresh list showed, Sketchy coins included, then checks each coin again 1, 3, 6, 12 and 24 hours later. This is how each kind of coin really did.</p>`;
- if(!H)return h+skeleton(3);const R=H.rows||[];
+ if(!H)return h+skeleton(3);const R=(H.rows||[]).filter(x=>!x.h);
  const n24=R.filter(x=>x.c24).length,n6=R.filter(x=>x.c6).length,k=n24>=30?"c24":n6>=30?"c6":"c1",lab={c24:"24 hours",c6:"6 hours",c1:"1 hour"}[k];
  h+=`<div class="rbig"><b>${R.length.toLocaleString()}</b><span>coins on record${H.updated?`, updated ${ago(H.updated)}`:""}. ${n24} have their 24-hour result.${n24<30?" The full picture builds over the first few days.":""}</span></div>`;
  const G=[["passed","Passed"],["caution","Caution"],["sketchy","Sketchy"]].map(([v,l])=>[l,v,stats(R.filter(x=>x.v===v),k)]);
@@ -596,13 +705,14 @@ function drawSet(){const pill=(k,v,l)=>`<button class="pill ${SET[k]===v?"on":""
 /* ---------- drawing ---------- */
 function stampText(){const el=$("#stamp");if(!el)return;const t=S.tab,r=S[t],p=$("#pulse");if(p)p.classList.toggle("busy",!!S.busy[t]);
  el.innerHTML=(t==="fresh"||t==="hot")?(S.busy[t]&&!r?"Scanning Solana…":r?`${S.busy[t]?"Scanning":"Scanned"} <b>${ago(r.at)}</b>${SET.auto?", again every minute":""}`:"")
-  :t==="watch"?(S.qAt?`Prices <b>${ago(S.qAt)}</b>`:"Loading prices…"):t==="record"?(S.hist&&S.hist.updated?`Record updated <b>${ago(S.hist.updated)}</b>`:"Early Bird's track record"):"Paste any coin to check it"}
+  :t==="watch"?(S.qAt?`Prices <b>${ago(S.qAt)}</b>`:"Loading prices…"):t==="record"?(S.hist&&S.hist.updated?`Record updated <b>${ago(S.hist.updated)}</b>`:"Early Bird's track record")
+  :t==="coach"?(coachAt?`Calls checked <b>${ago(coachAt)}</b>${COACH.auto?", coach is trading practice money":", every 30 seconds"}`:"Checking…"):"Paste any coin to check it"}
 function markTabs(){const al=hasAlerts();document.querySelectorAll(".dock button").forEach(b=>{b.classList.toggle("on",b.dataset.tab===S.tab);b.setAttribute("aria-selected",b.dataset.tab===S.tab);
-  const dot=b.dataset.tab==="watch"&&al;if(dot&&!b.querySelector(".dot"))b.insertAdjacentHTML("beforeend",'<i class="dot"></i>');if(!dot)b.querySelectorAll(".dot").forEach(x=>x.remove())})}
+  const dot=(b.dataset.tab==="watch"&&al)||(b.dataset.tab==="coach"&&urgent());if(dot&&!b.querySelector(".dot"))b.insertAdjacentHTML("beforeend",'<i class="dot"></i>');if(!dot)b.querySelectorAll(".dot").forEach(x=>x.remove())})}
 function draw(){const v=$("#view"),a=document.activeElement,typing=a&&a.id==="ckq",sel=typing?[a.selectionStart,a.selectionEnd]:null;
  if(typing)S.check.q=a.value;
  markTabs();
- v.innerHTML=S.tab==="fresh"||S.tab==="hot"?listView(S.tab):S.tab==="check"?checkView():S.tab==="watch"?watchView():recordView();
+ v.innerHTML=S.tab==="fresh"||S.tab==="hot"?listView(S.tab):S.tab==="coach"?coachView():S.tab==="check"?checkView():S.tab==="watch"?watchView():recordView();
  stampText();if(S.tab==="check"&&S.check.c){loadChart(S.check.c);loadTrades(S.check.c);loadReport(S.check.c)}
  if(typing){const i=$("#ckq");if(i){i.focus();try{i.setSelectionRange(sel[0],sel[1])}catch(e){}}}}
 function drawIf(tab){if(S.tab===tab)draw();else{stampText();markTabs()}}
@@ -614,6 +724,7 @@ function tick(now){if(document.hidden)return;const t=S.tab;
  if(t==="watch"&&(now||Date.now()-S.qAt>30000))loadQuotes();
  if(S.open&&$("#coin").open){const c=COINS.get(S.open);if(c)loadTrades(c)}else if(t==="check"&&S.check.c)loadTrades(S.check.c);
  if(t==="record"&&(!S.hist||now))loadHist();
+ if(t==="coach"||COACH.auto||holdings().length){if(t==="coach"&&!S.hist)loadHist();if(t==="coach"||COACH.auto||Date.now()-coachAt>60000)coachCycle(now&&t==="coach")}
  stampText()}
 setInterval(tick,5000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)tick()});
@@ -635,15 +746,19 @@ document.addEventListener("click",async e=>{const b=e.target.closest("button,[da
  if(d.logbuy){buySheet(d.logbuy);return}
  if(d.share){shareSheet(d.share);return}
  if(d.sharego!==undefined){const k=S.card;if(!k)return;try{await navigator.share({files:[new File([k.b],k.name,{type:"image/png"})]})}catch(err){}return}
- if(d.pbuy){const[m,v]=d.pbuy.split("|");if(paperBuy(m,+v)){toast(`Practice: bought $${v}`);const c=COINS.get(m);if(c&&$("#coin").open)drawSheet(c,false);if(S.tab==="watch")draw()}return}
- if(d.psell){const[m,f]=d.psell.split("|");if(paperSell(m,+f)){toast(+f>=1?"Practice: sold it all":"Practice: sold half");const c=COINS.get(m);if(c&&$("#coin").open)drawSheet(c,false);loadQuotes()}else toast("No live price right now, try again in a moment");return}
- if(d.preset!==undefined){if(!confirm("Start over with a fresh $1,000 of practice money?"))return;PAPER={cash:1000,start:1000,pos:{},hist:[]};savePaper();draw();return}
+ if(d.pbuy){const[m,v]=d.pbuy.split("|");if(paperBuy(m,+v)){toast(`Practice: bought $${v}`);const c=COINS.get(m);if(c&&$("#coin").open)drawSheet(c,false);if(S.tab==="watch"||S.tab==="coach")draw()}return}
+ if(d.psell){const[m,f]=d.psell.split("|");if(paperSell(m,+f)){toast(+f>=1?"Practice: sold it all":"Practice: sold half");const c=COINS.get(m);if(c&&$("#coin").open)drawSheet(c,false);if(S.tab==="coach")draw();loadQuotes()}else toast("No live price right now, try again in a moment");return}
+ if(d.coachauto!==undefined){COACH.auto=!COACH.auto;saveCoach();toast(COACH.auto?"The coach will trade its practice money while the site is open":"The coach stopped trading");draw();if(COACH.auto)coachCycle(true);return}
+ if(d.roboreset!==undefined){if(!confirm("Reset the coach's practice money to $1,000?"))return;ROBO=freshAcct();savePaper(ROBO);COACH.mints=[];saveCoach();draw();return}
+ if(d.halfsold){const x=BUYS.find(y=>y.id===d.halfsold);if(!x)return;const p=priceOf(x.m),v=p&&x.p?x.usd*p/x.p:null;const got=prompt("About how much did you get back for half? ($)",v?(v/2).toFixed(2):"");if(got==null)return;
+  const n=parseFloat(got);if(!(n>=0)){toast("Type a dollar amount");return}x.half=true;x.halfUsd=n;LS.set("eb_buys",BUYS);toast("Logged. The rest rides for free.");draw();return}
+ if(d.preset!==undefined){if(!confirm("Start over with a fresh $1,000 of practice money?"))return;PAPER=freshAcct();savePaper(PAPER);draw();return}
  if(d.savebuy!==undefined){const usd=parseFloat($("#buyusd").value),p=parseFloat($("#buyp").value),c=COINS.get(S.buyFor);if(!(usd>0)||!c){$("#buyusd").focus();return}
   BUYS.unshift({id:"b"+Date.now(),m:c.mint,s:c.sym,n:c.name,icon:c.icon,usd,p:p>0?p:c.price,t:Date.now(),lq:c.liq,sold:null});LS.set("eb_buys",BUYS);
   $("#buy").close();toast(LIMIT>0&&spentWeek()>LIMIT?"Logged. That puts you past this week's limit.":"Logged. Track it in Watch.");loadQuotes();draw();return}
  if(d.sold){soldSheet(d.sold);return}
  if(d.savesold!==undefined){const usd=parseFloat($("#soldusd").value),x=BUYS.find(y=>y.id===S.soldFor);if(!x||!(usd>=0)||$("#soldusd").value===""){return}
-  x.sold={usd,t:Date.now()};LS.set("eb_buys",BUYS);$("#buy").close();draw();return}
+  x.sold={usd:usd+(x.half?+x.halfUsd||0:0),t:Date.now()};LS.set("eb_buys",BUYS);$("#buy").close();draw();return}
  if(d.delbuy){if(!confirm("Remove this buy from your list?"))return;BUYS=BUYS.filter(x=>x.id!==d.delbuy);LS.set("eb_buys",BUYS);draw();return}
  if(d.paste!==undefined){try{const t=await navigator.clipboard.readText();if(t){S.check.q=t.trim();draw();doCheck()}}catch(err){const i=$("#ckq");if(i)i.focus();toast("Press and hold in the box, then tap Paste")}return}
  if(d.docheck!==undefined){doCheck();return}

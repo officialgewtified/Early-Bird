@@ -147,6 +147,35 @@ function score(c,pre){const cl=(x,a,b)=>x==null||!isFinite(x)?null:Math.max(0,Ma
  if(!pre&&c.checks)for(const f of c.checks){if(f.level==="warn")sc*=.9;if(f.level==="bad")sc*=.6}
  return Math.max(0,Math.min(99,Math.round(sc)))}
 
+/* ---------- the coach's buy signal ----------
+   A Passed coin where real buying is clearly winning right now, without chasing one that has already gone vertical.
+   Fixed rules, the same on the phone and in the hourly record, so the record shows whether they actually work.
+   Returns {lvl:2 strong, 1 okay, 0 none, why:[reasons it qualifies], no:"why not"} */
+function buySignal(c){const no=t=>({lvl:0,why:[],no:t});if(!c)return no("No data");
+ // Passed coins can get a strong signal; a Caution coin whose only worry is a mild one (no socials, few holders yet, pool not all locked) can get an okay one
+ const W=(c.checks||[]).filter(f=>f.level==="warn"),soft=c.verdict==="caution"&&W.length===1&&["socials","few","lp"].includes(W[0].k);
+ if(c.verdict!=="passed"&&!soft)return no(c.verdict==="sketchy"?"It failed the scam checks":c.verdict==="caution"?`Scam-check warning: ${(W[0]&&W[0].t||"see Safety").toLowerCase()}${W.length>1?` and ${W.length-1} more`:""}`:"It hasn't been fully checked");
+ const s1=c.st&&c.st.h1,s5=c.st&&c.st.m5;if(!s1)return no("Not enough trading data yet");
+ const h1=chg(c,"h1"),bv=num(s1.buyVolume)||0,sv=num(s1.sellVolume)||0,tv=bv+sv,r=tv?bv/tv:0;
+ if(tv<5000)return no("Too little trading this hour to get in and out cleanly");
+ if(!c.curve&&(c.liq||0)<1e4)return no("The pool is too small to get in and out cleanly");
+ if(h1!=null&&h1>150)return no(`Already up ${Math.round(h1)}% this hour, too late to chase`);
+ if(h1!=null&&h1<-25)return no(`Falling hard (${Math.round(h1)}% this hour)`);
+ if(c.top10!=null&&c.top10>35)return no(`The top 10 wallets hold ${Math.round(c.top10)}%, enough to dump on everyone`);
+ if(c.devPct!=null&&c.devPct>10)return no(`The creator still holds ${Math.round(c.devPct)}%`);
+ if(c.organic!=null&&c.organic<15)return no("The trading is mostly bots");
+ if(r<.5)return no("More money is selling than buying this hour");
+ const why=[],nb=num(s1.numNetBuyers),tr=num(s1.numTraders)||0,hc=num(s1.holderChange);
+ if(r>=.55)why.push(`${Math.round(r*100)}% of the money this hour was buying`);
+ if(nb!=null&&nb>=Math.max(10,tr*.05))why.push(`${nb.toLocaleString()} more wallets bought than sold this hour`);
+ if(hc!=null&&hc>=3)why.push(`Holders up ${hc.toFixed(0)}% this hour`);
+ if(s5){const b5=num(s5.buyVolume)||0,x5=num(s5.sellVolume)||0;if(b5+x5>=500&&b5>x5*1.2)why.push("Still being bought in the last 5 minutes")}
+ if(c.organic!=null&&c.organic>=40)why.push("Mostly real traders, not bots");
+ if(c.score>=60)why.push(`Early score ${c.score}`);
+ const n=why.length,lvl=n>=5?2:n>=4?1:0;
+ if(!lvl)return{lvl:0,why,no:"Buying isn't strong enough yet"};
+ return soft?{lvl:1,why,warn:W[0].t}:{lvl,why}}
+
 /* ---------- the sources ---------- */
 const FEEDS={
  fresh:[["dxProfiles",`${DX}/token-profiles/latest/v1`],["dxBoosts",`${DX}/token-boosts/latest/v1`],["dxCto",`${DX}/community-takeovers/latest/v1`],
@@ -225,4 +254,4 @@ async function quotes(get,mints,maxAge){const out={},age=maxAge==null?20000:maxA
  failed+=Math.max(0,miss.length-40);
  return{q:out,failed}}
 
-return{makeGet,scan,checkOne,enrich,quotes,checks,verdictOf,score,parseInput,money,ageTxt,txB,txS,chg,vol,VERDICT,DEFAULTS,FEEDS,B58}});
+return{makeGet,scan,checkOne,enrich,quotes,checks,verdictOf,score,buySignal,parseInput,money,ageTxt,txB,txS,chg,vol,VERDICT,DEFAULTS,FEEDS,B58}});
