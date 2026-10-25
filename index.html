@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Early Bird</title>
 <meta name="description" content="Brand-new Solana meme coins, checked for the usual scams and ranked by how early they are.">
-<meta name="theme-color" content="#120E33">
+<meta name="theme-color" content="#061411">
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=3">
 <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png?v=3">
 <link rel="manifest" href="manifest.webmanifest?v=3">
@@ -16,7 +16,7 @@
 <link rel="preload" href="fonts/archivo-x.woff" as="font" type="font/woff" crossorigin>
 <link rel="preload" href="fonts/big-shoulders.woff" as="font" type="font/woff" crossorigin>
 <link rel="stylesheet" href="eb.css?v=10">
-<script>/* put the saved look on before anything draws, so there's no flash */try{var t=JSON.parse(localStorage.getItem("eb_set")||"{}").theme;if(t&&t!=="night")document.documentElement.dataset.theme=t}catch(e){}</script>
+<script>/* put the saved look on before anything draws, so there's no flash */try{var t=JSON.parse(localStorage.getItem("eb_set")||"{}").theme||"money";if(t!=="night")document.documentElement.dataset.theme=t}catch(e){}</script>
 </head>
 <body>
 <header class="wrap top">
@@ -55,7 +55,7 @@ const{money,ageTxt,VERDICT}=EB;
 const pct=(x,d=0)=>x==null||!isFinite(x)?"–":(x>0?"+":"")+(Math.abs(x)>=1000?Math.round(x).toLocaleString():x.toFixed(d))+"%";
 const cls=x=>x==null?"":x>=0?"up":"dn";
 const get=EB.makeGet(u=>fetch(u,{cache:"no-store"}));
-const DEF={maxAgeH:24,maxMcap:2e6,minLiq:5e3,hide:true,auto:true,theme:"night"};
+const DEF={maxAgeH:24,maxMcap:2e6,minLiq:5e3,hide:true,auto:true,theme:"money"};
 const THEMEBG={night:"#120E33",solana:"#0C0A1A",money:"#061411",day:"#F3F5FB"};
 function applyTheme(){const t=SET.theme||"night";if(t==="night")delete document.documentElement.dataset.theme;else document.documentElement.dataset.theme=t;
  const m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",THEMEBG[t]||THEMEBG.night)}
