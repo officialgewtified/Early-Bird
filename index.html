@@ -14,7 +14,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Early Bird">
 <link rel="preload" href="fonts/archivo-x.woff" as="font" type="font/woff" crossorigin>
-<link rel="stylesheet" href="eb.css?v=8">
+<link rel="preload" href="fonts/big-shoulders.woff" as="font" type="font/woff" crossorigin>
+<link rel="stylesheet" href="eb.css?v=9">
 </head>
 <body>
 <header class="wrap top">
@@ -154,7 +155,7 @@ function coinBody(c,loading){const w=WATCH.some(x=>x.m===c.mint),b=EB.txB(c,"h1"
  const L=[[safe(c.pairUrl)||`https://dexscreener.com/solana/${c.mint}`,"DEX Screener"],[`https://x.com/search?q=${encodeURIComponent(c.mint)}&f=live`,"What X is saying"],
   [safe(c.x),"Their X"],[safe(c.tg),"Telegram"],[safe(c.web),"Website"],[`https://phantom.com/tokens/solana/${c.mint}`,"Open in Phantom"],[`https://rugcheck.xyz/tokens/${c.mint}`,"RugCheck"],[`https://solscan.io/token/${c.mint}`,"Solscan"]].filter(x=>x[0]);
  const sc=c.score,word=sc>=70?"Early and busy":sc>=50?"Some real action":sc>=30?"Quiet so far":"Barely moving";
- const nm=String(c.name||c.sym||""),lw=Math.max(...nm.split(/\s+/).map(w=>w.length)),fs=lw<=6?26:lw<=8?22:lw<=11?19:16,fw=lw<=8?118:100;   // the longest word has to fit on one line
+ const nm=String(c.name||c.sym||""),lw=Math.max(...nm.split(/\s+/).map(w=>w.length)),fs=lw<=8?34:lw<=11?29:lw<=15?25:21,fw=100;   // the longest word has to fit on one line
  return `<div class="cs-top v-${c.verdict}"><div class="sh">${avatar(c)}<div style="min-width:0"><h3 style="font-size:${fs}px;font-stretch:${fw}%">${esc(nm)}</h3>
   <div class="meta"><b>$${esc(c.sym)}</b><span>${ageTxt(c.ageH)} old</span>${c.verified?"<span>Jupiter verified</span>":""}${c.cto?"<span>Community takeover</span>":""}</div></div>
   <span class="stampv">${VERDICT[c.verdict]}</span></div>
