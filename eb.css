@@ -583,3 +583,11 @@ footer{margin-top:28px}
 .aplog li{display:grid;grid-template-columns:52px 1fr;gap:8px;padding:7px 0;border-bottom:1px solid var(--rim);font-size:13px;line-height:1.4}
 .aplog li span{color:var(--dim);font-size:11.5px;padding-top:2px}
 .aplog li p{margin:0}.aplog em{font-style:normal;font-weight:800}
+.apcmp{margin-top:12px;border-top:1px solid var(--rim)}
+.apk{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--rim)}
+.apk span{display:flex;flex-direction:column;min-width:0}.apk span:last-child{align-items:flex-end;flex:none}
+.apk b{font-weight:800;font-size:14px}.apk small{font-size:12px;color:var(--haze);font-stretch:90%}
+.apk span:last-child b{font:900 24px/1 var(--fd);font-variant-numeric:tabular-nums}
+.apk.me span:first-child b::after{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--pass);margin-left:7px;vertical-align:2px}
+.apver{margin:12px 0 0;font-size:13.5px;line-height:1.45}
+.aptag{font-style:normal;font:800 10px/1 var(--f);text-transform:uppercase;letter-spacing:.05em;padding:3px 6px;border-radius:5px;background:color-mix(in srgb,var(--paper) 10%,transparent);color:var(--haze);vertical-align:1px}

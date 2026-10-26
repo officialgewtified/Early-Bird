@@ -1,6 +1,7 @@
 name: Early Bird autopilot (practice money)
-# Every 5 minutes (GitHub's fastest, and it often runs late): check the coins the autopilot holds and sell on the
-# coach's calls; every other run, scan for new buy signals and buy $25 of fake money each. No wallet, no real money.
+# Every 5 minutes (GitHub's fastest, and it often runs late): three fake-money players (the coach's signals, every coin
+# that passes the checks, random coins) check what they hold, sell on the coach's calls, and buy new coins. No wallet,
+# no real money.
 # Its state lives on the autopilot-data branch (one commit, replaced each run), so it doesn't rebuild the site.
 on:
   schedule:
