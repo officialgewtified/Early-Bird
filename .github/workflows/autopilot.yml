@@ -1,0 +1,38 @@
+name: Early Bird autopilot (practice money)
+# Every 5 minutes (GitHub's fastest, and it often runs late): check the coins the autopilot holds and sell on the
+# coach's calls; every other run, scan for new buy signals and buy $25 of fake money each. No wallet, no real money.
+# Its state lives on the autopilot-data branch (one commit, replaced each run), so it doesn't rebuild the site.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: early-bird-autopilot
+  cancel-in-progress: false
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Load the autopilot's state
+        run: |
+          if git fetch -q --depth 1 origin autopilot-data 2>/dev/null; then git show FETCH_HEAD:autopilot.json > autopilot.json || true; fi
+          [ -s autopilot.json ] || echo "{}" > autopilot.json
+      - run: node autopilot.js
+      - name: Save the autopilot's state
+        run: |
+          git config user.name "earlybird-bot"
+          git config user.email "earlybird-bot@users.noreply.github.com"
+          mkdir -p /tmp/ap && cp autopilot.json /tmp/ap/
+          git checkout -q --orphan ap-tmp
+          git rm -rq --cached . >/dev/null
+          cp /tmp/ap/autopilot.json ./autopilot.json
+          git add autopilot.json
+          git commit -qm "Autopilot state"
+          git push -q -f origin ap-tmp:autopilot-data

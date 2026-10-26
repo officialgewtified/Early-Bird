@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-title" content="Early Bird">
 <link rel="preload" href="fonts/archivo-x.woff" as="font" type="font/woff" crossorigin>
 <link rel="preload" href="fonts/big-shoulders.woff" as="font" type="font/woff" crossorigin>
-<link rel="stylesheet" href="eb.css?v=18">
+<link rel="stylesheet" href="eb.css?v=19">
 <script>/* put the saved look on before anything draws, so there's no flash */try{var o=JSON.parse(localStorage.getItem("eb_set")||"{}"),t=o.theme||"studio";if(o.silk)document.documentElement.classList.add("silk-on");if(t!=="night")document.documentElement.dataset.theme=t;if(t==="custom"&&o.custom)document.documentElement.style.background=o.custom.bg}catch(e){}</script>
 </head>
 <body>
@@ -45,7 +45,7 @@
 <dialog id="set" aria-label="Settings"><div class="sheet set" id="setsheet"></div></dialog>
 <dialog id="buy" aria-label="Log a buy"><div class="sheet" id="buysheet"></div></dialog>
 
-<script src="eb-core.js?v=5"></script>
+<script src="eb-core.js?v=6"></script>
 <script>
 "use strict";
 /* ---------- basics ---------- */
@@ -111,7 +111,7 @@ async function refresh(mode,manual){if(S.busy[mode])return;S.busy[mode]=true;S.e
   S.seen[mode]=new Set([...(prev||[]),...r.coins.map(c=>c.mint)]);S[mode]=r;
   const n=r.coins.filter(c=>c.isNew&&c.verdict==="passed").length;if(n&&S.tab===mode&&prev)toast(`${n} new coin${n>1?"s":""} passed the checks`);
  }catch(e){S.err[mode]="Couldn't reach the coin data. Check your connection and pull down to try again."}
- S.busy[mode]=false;drawIf(mode);if(S.tab==="coach")draw();if(COACH.auto)robot()}
+ S.busy[mode]=false;drawIf(mode);if(S.tab==="coach")draw()}
 async function loadQuotes(){const ms=[...new Set([...WATCH.map(w=>w.m),...BUYS.filter(b=>!b.sold).map(b=>b.m),...Object.keys(PAPER.pos),...Object.keys(ROBO.pos)])];if(!ms.length){S.qAt=Date.now();return}
  S.qBusy=true;try{const{q,failed}=await EB.quotes(get,ms,15000);S.quotes=Object.assign(S.quotes,q);S.qFail=failed;S.qAt=Date.now()}catch(e){}S.qBusy=false;planAlerts();drawIf("watch")}
 /* the exit plan on logged buys: half at 2x, most at 5x, out at -40%. Tells you once when a line is crossed (while the site is open) */
@@ -498,6 +498,7 @@ function checkView(){const k=S.check;
 /* ---------- Coach: live buy signals, a call on every coin you hold, and a robot that can trade its own practice money ----------
    Every call comes from fixed rules on the live numbers (the same ones you can read on each coin). They're signals, not promises. */
 let COACH=Object.assign({auto:false,stake:25,max:8,mints:[]},LS.get("eb_coach",{}));const saveCoach=()=>LS.set("eb_coach",COACH);
+COACH.auto=false;   // the on-phone robot is retired: the 24/7 autopilot on GitHub does this now, with the phone closed
 let CALLS=LS.get("eb_calls",{});      // the last call shown for each coin you hold, so a change only pings you once
 const CS={};                          // live Jupiter stats for coins you hold
 const sigOf=c=>c?EB.buySignal(c):{lvl:0,why:[],no:"No data"};
@@ -511,23 +512,26 @@ function holdings(){const P=[];
  return P}
 function liveCoin(m){const c=COINS.get(m)||{mint:m},q=S.quotes[m],st=(CS[m]&&CS[m].st)||c.st||null;
  return Object.assign({},c,{st,liq:q&&q.liq!=null?q.liq:c.liq,price:q&&q.price||c.price,ch:q&&q.ch&&Object.keys(q.ch).length?q.ch:c.ch,curve:q?q.curve:c.curve})}
-/* the call on one holding: get out, take profit, watch closely or hold */
+/* the call on one holding: get out, take profit, watch closely or hold. The decision is EB.exitCall, the same one the 24/7 autopilot uses */
 function callOf(h){const q=S.quotes[h.m],c=liveCoin(h.m),now=Date.now();
  if(!S.qAt&&!c.price)return{k:"wait",head:"Checking",why:["Getting the live price…"]};
- if(S.qAt&&!S.qFail&&!q&&!c.price)return{k:"out",head:"Get out",why:["Its trading pool is gone. That usually means the creator pulled the money (a rug pull)."]};
- const px=c.price,x=px&&h.p0?px/h.p0:null,r=readOf(c),s1=c.st&&c.st.h1,dn=Math.round((1-(x||1))*100);
+ const gone=!!(S.qAt&&!S.qFail&&!q&&!c.price),px=c.price,x=px&&h.p0?px/h.p0:null,r=readOf(c),s1=c.st&&c.st.h1,dn=Math.round((1-(x||1))*100);
+ const fade=!!(s1&&((s1.volumeChange!=null&&s1.volumeChange<=-50)||(s1.holderChange!=null&&s1.holderChange<=-2)));
+ const d=EB.exitCall({x,liq:c.liq,lq0:h.lq0,curve:c.curve,net:r.net,creatorSold:r.creatorSold,half:h.half,ageH:(now-h.t)/36e5,fade,gone});
  const plus=r.it.filter(i=>i.d==="up").map(i=>i.t),minus=r.it.filter(i=>i.d==="dn").map(i=>i.t);
- if(h.lq0&&c.liq!=null&&!c.curve&&c.liq<h.lq0*.5)return{k:"out",head:"Get out",x,why:[`Its pool is down ${Math.round((1-c.liq/h.lq0)*100)}% since you bought. That can be a rug pull starting.`]};
- if(r.creatorSold)return{k:"out",head:"Get out",x,why:[minus[0]||"The creator is selling.","When the creator dumps, the price rarely comes back."]};
- if(x!=null&&x<=.6)return{k:"out",head:"Get out",x,why:[`Down ${dn}% from your buy. The plan says cut it here instead of hoping.`,...minus.slice(0,1)]};
- if(x!=null&&x<.9&&r.net<=-3)return{k:"out",head:"Get out",x,why:["Sellers are in control and you're down. Cutting it now saves what's left.",...minus.slice(0,2)]};
- if(x!=null&&x>=5)return{k:"tp",head:"Take profit",x,why:[`Up ${x.toFixed(1)}x. The plan says sell most of what's left.`,...minus.slice(0,1)]};
- if(x!=null&&x>=2&&!h.half)return{k:"tp",head:"Take profit",x,why:[`Up ${x.toFixed(1)}x. Sell half and the rest is free money.`,...minus.slice(0,1)]};
- if(x!=null&&x>=1.5&&r.net<=-3)return{k:"tp",head:"Take profit",x,why:["You're up and sellers are taking over. Lock some in.",...minus.slice(0,2)]};
- const fade=s1&&((s1.volumeChange!=null&&s1.volumeChange<=-50)||(s1.holderChange!=null&&s1.holderChange<=-2));
- if(r.net<=-2||fade)return{k:"watch",head:"Watch closely",x,why:[...minus.slice(0,2),...(fade&&!minus.length?["Momentum is fading: trading or holders are dropping off."]:[]),`If it falls to ${x?money((c.mcap||0)*.6/x):"40% under your buy"} market cap, the plan says get out.`].filter(Boolean)};
- if(now-h.t>24*36e5&&x!=null&&x<1.2)return{k:"watch",head:"Watch closely",x,why:["It's been a day and it hasn't gone anywhere. Most meme coins fade after their first day."]};
- return{k:"hold",head:"Hold",x,why:plus.length?plus.slice(0,2):["Nothing worrying right now. The calls update every 30 seconds while the site is open."]}}
+ const W={"Its pool is gone":["Its trading pool is gone. That usually means the creator pulled the money (a rug pull)."],
+  "Pool down by half":[`Its pool is down ${h.lq0&&c.liq!=null?Math.round((1-c.liq/h.lq0)*100):50}% since you bought. That can be a rug pull starting.`],
+  "Creator selling":[minus[0]||"The creator is selling.","When the creator dumps, the price rarely comes back."],
+  "Down 40%":[`Down ${dn}% from your buy. The plan says cut it here instead of hoping.`,...minus.slice(0,1)],
+  "Sellers in control":["Sellers are in control and you're down. Cutting it now saves what's left.",...minus.slice(0,2)],
+  "5x":[`Up ${(x||0).toFixed(1)}x. The plan says sell most of what's left.`,...minus.slice(0,1)],
+  "2x":[`Up ${(x||0).toFixed(1)}x. Sell half and the rest is free money.`,...minus.slice(0,1)],
+  "Locking in profit":["You're up and sellers are taking over. Lock some in.",...minus.slice(0,2)],
+  "Momentum fading":[...minus.slice(0,2),...(!minus.length?["Momentum is fading: trading or holders are dropping off."]:[]),`If it falls 40% under your buy, the plan says get out.`],
+  "Selling picking up":[...minus.slice(0,2),`If it falls 40% under your buy, the plan says get out.`],
+  "Gone nowhere in a day":["It's been a day and it hasn't gone anywhere. Most meme coins fade after their first day."],
+  "Holding":plus.length?plus.slice(0,2):["Nothing worrying right now. The calls update every 30 seconds while the site is open."]};
+ return{k:d.k,head:{out:"Get out",tp:"Take profit",watch:"Watch closely",hold:"Hold"}[d.k],x,why:(W[d.r]||[d.r]).filter(Boolean)}}
 /* keep the data for your holdings fresh, ping you when a call changes, and let the coach trade its practice money */
 let coachBusy=false,coachAt=0,coachTr=0;
 async function coachCycle(force){if(coachBusy||(!force&&Date.now()-coachAt<30000))return;coachBusy=true;coachAt=Date.now();
@@ -537,7 +541,7 @@ async function coachCycle(force){if(coachBusy||(!force&&Date.now()-coachAt<30000
    try{const d=await get(`https://lite-api.jup.ag/tokens/v2/search?query=${ms.slice(0,50).join(",")}`,45000);
     for(const j of d||[])CS[j.id]={t:Date.now(),st:{m5:j.stats5m||null,h1:j.stats1h||null,h6:j.stats6h||null,h24:j.stats24h||null}}}catch(e){}
    if(Date.now()-coachTr>60000){coachTr=Date.now();for(const m of ms.slice(0,4)){const c=COINS.get(m)||{mint:m,pair:null};loadTrades(c)}}}
-  pingCalls();if(COACH.auto)robot()}finally{coachBusy=false}
+  pingCalls();if(S.tab==="coach")loadAP()}finally{coachBusy=false}
  drawIf("coach")}
 const urgent=()=>holdings().some(h=>h.kind!=="robo"&&(CALLS[h.key]==="out"||CALLS[h.key]==="tp"));
 const fm2=v=>"$"+(+v||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -580,6 +584,27 @@ function roboHTML(){const v=paperValue(ROBO),pl=v-ROBO.start,H=ROBO.hist,open=Ob
   <p class="fine">${COACH.auto?`On. It buys $${COACH.stake} of each buy signal (up to ${COACH.max} at once), sells half at 2x, the rest at 5x, on a Get out call or after a day. It only trades while Early Bird is open on your screen.`:"Off. Turn it on to see how the coach's calls do with fake money before you trust them with real money."}</p>
   ${H.length?`<div class="rh2">${H.slice(0,5).map(x=>`<span><b>$${esc(x.s)}</b> ${x.why?esc(x.why)+", ":""}<em class="${cls(x.out-x.in)}">${pct((x.out/x.in-1)*100)}</em></span>`).join("")}</div>`:""}
   ${H.length||open?`<button class="more" data-roboreset>Reset the coach's money</button>`:""}</div>`}
+/* the 24/7 autopilot: practice money only, run on GitHub every few minutes; its state is on the autopilot-data branch */
+const AP_URL="https://raw.githubusercontent.com/officialgewtified/Early-Bird/autopilot-data/autopilot.json";
+let AP=null,apAt=0,apErr=false;
+async function loadAP(force){if(!force&&Date.now()-apAt<60000)return;apAt=Date.now();
+ try{const r=await fetch(AP_URL+"?t="+Date.now(),{cache:"no-store"});if(r.ok){AP=await r.json();apErr=false}else apErr=true}catch(e){apErr=true}drawIf("coach")}
+function apSpark(eq,start){if(!eq||eq.length<3)return"";const W=320,H=56,vs=eq.map(e=>e[1]),lo=Math.min(start,...vs),hi=Math.max(start,...vs),t0=eq[0][0],t1=eq[eq.length-1][0]||t0+1;
+ const X=t=>((t-t0)/((t1-t0)||1)*W).toFixed(1),Y=v=>(4+(H-8)*(1-(v-lo)/((hi-lo)||1))).toFixed(1),up=vs[vs.length-1]>=start;
+ return `<svg class="apsp" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><line x1="0" x2="${W}" y1="${Y(start)}" y2="${Y(start)}" class="base"/><polyline points="${eq.map(e=>X(e[0])+","+Y(e[1])).join(" ")}" class="${up?"g":"r"}" vector-effect="non-scaling-stroke"/></svg>`}
+function apHTML(){
+ if(!AP||!AP.v)return `<div class="robo"><div class="rt"><div><b>Practice money</b><small>Fake $1,000 that trades by itself, around the clock</small></div></div><p class="fine" style="margin-top:10px">${apErr?"It hasn't made its first run yet. It runs about every 5 minutes on GitHub.":"Loading…"}</p></div>`;
+ const v=AP.value!=null?AP.value:AP.cash,pl=v-AP.start,H=AP.hist||[],won=H.filter(x=>x.out>x.in).length,P=Object.values(AP.pos||{}),late=Date.now()-AP.updated>25*60e3;
+ const head={out:"Get out",tp:"Take profit",watch:"Watch closely",hold:"Hold"};
+ const act=x=>x.a==="buy"?`Bought $${x.usd} of <b>$${esc(x.s)}</b>. ${esc(x.why||"")}`:`${x.a==="half"?"Sold half of":"Sold"} <b>$${esc(x.s)}</b> for ${fm2(x.usd)} <em class="${cls(x.pl)}">${x.pl>=0?"+":"-"}${fm2(Math.abs(x.pl))}</em>. ${esc(x.why||"")}`;
+ return `<div class="robo ap"><div class="rt"><div><b>Practice money</b><small>Fake $${AP.start.toLocaleString()} that trades by itself, around the clock</small></div><span class="apst ${late?"late":""}">${late?"Running late":"Running"}</span></div>
+  <div class="rv"><b class="${cls(pl)}">${fm2(v)}</b><span>${pl>=0?"up":"down"} ${fm2(Math.abs(pl))} (${pct(pl/AP.start*100,1)}) after fees</span></div>
+  ${apSpark(AP.eq,AP.start)}
+  <p class="apm">${P.length} open · ${H.length} sold · ${won} won · checked ${ago(AP.updated)} · started ${new Date(AP.started).toLocaleDateString([],{month:"short",day:"numeric"})}</p>
+  ${P.length?`<div class="appos">${P.map(o=>{const px=o.last&&o.last.px,val=px?o.qty*px:null,d=val!=null?val-o.cost:null;
+   return `<button class="appr" data-coin="${esc(o.m)}">${avatar({icon:o.icon,sym:o.s})}<span class="crn"><b>${esc(o.n||o.s)}</b><small>${o.last?`${o.last.x!=null?o.last.x.toFixed(2)+"x · ":""}${head[o.last.k]||""}${o.last.r&&o.last.k!=="hold"?": "+esc(o.last.r):""}`:"Just bought"}${o.half?" · half sold":""}</small></span><span class="cpl ${cls(d)}" style="font-size:19px">${d==null?"–":(d>=0?"+":"-")+fm2(Math.abs(d))}</span></button>`}).join("")}</div>`:`<p class="fine">Not holding anything right now. It buys when the coach gives a buy signal.</p>`}
+  ${(AP.log||[]).length?`<h4 class="aph">What it did</h4><ul class="aplog">${AP.log.slice(0,8).map(x=>`<li><span>${ago(x.t)}</span><p>${act(x)}</p></li>`).join("")}</ul>`:""}
+  <p class="fine">It checks its coins about every 5 minutes and looks for new buys about every 10, using the coach's rules: $${25} per signal, up to 8 at once, half at 2x, the rest at 5x, out on a Get out call or after a day. Every trade pays about 1% plus price impact, like a real one would. No wallet or real money is involved. This is how you find out whether the rules make money before risking any.</p></div>`}
 function coachView(){const H=holdings().filter(h=>h.kind!=="robo"),L=buyList(),busy=S.busy.fresh||S.busy.hot;
  let h=`<h2 class="pt" style="margin-top:18px">Coach</h2><p class="sub">What to look at, and what to do with what you hold, from fixed rules on the live numbers. Signals, not promises: most meme coins still lose. Prove it with practice money first.</p>`;
  if(H.length){const order={out:0,tp:1,watch:2,hold:3,wait:4};h+=`<h3 class="h3">Your coins</h3>${H.map(h2=>[h2,callOf(h2)]).sort((a,b)=>order[a[1].k]-order[b[1].k]).map(([h2])=>callCard(h2)).join("")}`}
@@ -587,7 +612,7 @@ function coachView(){const H=holdings().filter(h=>h.kind!=="robo"),L=buyList(),b
  if(!S.fresh&&!S.hot)h+=skeleton(2);
  else if(!L.length)h+=`<div class="empty" style="text-align:left;padding:6px 0 4px">No buy signals right now. That's normal: the rules are strict on purpose, and sitting out is a real choice. It checks again every minute or two.</div>`;
  else h+=L.slice(0,6).map(sigCard).join("");
- h+=`<h3 class="h3">The coach's practice money</h3>${roboHTML()}`;
+ h+=`<h3 class="h3">Autopilot</h3>${apHTML()}`;
  h+=`<h3 class="h3">Does the coach work?</h3>${coachRecord()}`;
  h+=`<details class="rules"><summary>The rules it follows</summary>
   <p><b>Buy signal.</b> It passed the scam checks (or has one mild warning), the pool is at least $10K, it's trading at least $5K an hour, it isn't already up 150% this hour or down 25%, the top 10 wallets hold under 35%, the creator holds under 10%, and it isn't mostly bots. Then at least 4 of these: most of the money is buying, more wallets buying than selling, holders growing, still being bought in the last 5 minutes, mostly real traders, Early score 60+. Five or more is Strong.</p>

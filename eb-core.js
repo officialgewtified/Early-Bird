@@ -176,6 +176,44 @@ function buySignal(c){const no=t=>({lvl:0,why:[],no:t});if(!c)return no("No data
  if(!lvl)return{lvl:0,why,no:"Buying isn't strong enough yet"};
  return soft?{lvl:1,why,warn:W[0].t}:{lvl,why}}
 
+/* ---------- the coach's calls on coins it holds (the 24/7 autopilot uses these; the site's coach makes the same calls) ---------- */
+// how hard buyers (+) or sellers (-) are pushing right now, from the last 30 minutes of trades and the last hour of stats
+function flowNet(c,trades,creator,now){now=now||Date.now();const s1=c.st&&c.st.h1;let net=0,creatorSold=false;
+ const win=trades?trades.filter(x=>now-x.t<30*60e3):null,sw=a=>a.reduce((s,x)=>s+x.usd,0);
+ let buy=null,sell=null;
+ if(win&&win.length>=6){buy=sw(win.filter(x=>x.kind==="buy"));sell=sw(win.filter(x=>x.kind!=="buy"))}
+ else if(s1&&(s1.buyVolume||s1.sellVolume)){buy=num(s1.buyVolume)||0;sell=num(s1.sellVolume)||0}
+ if(buy!=null&&buy+sell>=300){const r=buy/(buy+sell);if(r>=.58)net+=2;else if(r<=.42)net-=2}
+ if(win){
+  if(creator){const cs=win.filter(x=>x.w===creator&&x.kind!=="buy"),cb=win.filter(x=>x.w===creator&&x.kind==="buy");
+   if(cs.length&&sw(cs)>=Math.max(100,(c.liq||0)*.005)){creatorSold=true;net-=4}else if(cs.length)net-=1;else if(cb.length)net+=1}
+  const big=Math.max(1000,(c.liq||0)*.03),ws=win.filter(x=>x.kind!=="buy"&&x.usd>=big&&x.w!==creator),wb=win.filter(x=>x.kind==="buy"&&x.usd>=big&&x.w!==creator);
+  if(ws.length>=2&&sw(ws)>sw(wb)*1.5)net-=2;else if(wb.length>=2&&sw(wb)>sw(ws)*1.5)net+=2}
+ if(s1){const nb=num(s1.numNetBuyers),tr=num(s1.numTraders),hc=num(s1.holderChange),vc=num(s1.volumeChange),lc=num(s1.liquidityChange),tv=(num(s1.buyVolume)||0)+(num(s1.sellVolume)||0);
+  if(hc!=null&&hc>=5)net+=2;else if(hc!=null&&hc<=-3)net-=2;else if(nb!=null&&tr&&Math.abs(nb)>=Math.max(10,tr*.08))net+=nb>0?1:-1;
+  if(vc!=null&&vc<=-50)net-=1;else if(vc!=null&&vc>=100)net+=1;
+  if(!c.curve&&lc!=null&&lc<=-15)net-=1;
+  if(tv>=5000&&c.organic!=null&&c.organic<20)net-=1}
+ const h1=chg(c,"h1"),run=Math.max(chg(c,"h6")||0,chg(c,"h24")||0);
+ if(run>=150&&net<0)net-=1;else if(h1!=null&&h1<=-20&&net>0)net+=1;
+ const fade=!!(s1&&((num(s1.volumeChange)!=null&&num(s1.volumeChange)<=-50)||(num(s1.holderChange)!=null&&num(s1.holderChange)<=-2)));
+ return{net,creatorSold,fade}}
+// the call: out (sell it all), tp (take profit), watch or hold. x = price now / average buy price
+function exitCall(o){const{x,liq,lq0,curve,net,creatorSold,half,ageH,fade,gone}=o;
+ if(gone)return{k:"out",r:"Its pool is gone"};
+ if(lq0&&liq!=null&&!curve&&liq<lq0*.5)return{k:"out",r:"Pool down by half"};
+ if(creatorSold)return{k:"out",r:"Creator selling"};
+ if(x!=null&&x<=.6)return{k:"out",r:"Down 40%"};
+ if(x!=null&&x<.9&&net<=-3)return{k:"out",r:"Sellers in control"};
+ if(x!=null&&x>=5)return{k:"tp",r:"5x"};
+ if(x!=null&&x>=2&&!half)return{k:"tp",r:"2x"};
+ if(x!=null&&x>=1.5&&net<=-3)return{k:"tp",r:"Locking in profit"};
+ if(net<=-2||fade)return{k:"watch",r:fade?"Momentum fading":"Selling picking up"};
+ if(ageH>24&&x!=null&&x<1.2)return{k:"watch",r:"Gone nowhere in a day"};
+ return{k:"hold",r:"Holding"}}
+// what a real trade would lose to fees and price impact: about 1% plus the trade's size against the pool, more on launch curves
+const fillCost=(usd,liq,curve)=>curve||!liq?.02:Math.min(.15,.01+2*usd/Math.max(liq,1000));
+
 /* ---------- the sources ---------- */
 const FEEDS={
  fresh:[["dxProfiles",`${DX}/token-profiles/latest/v1`],["dxBoosts",`${DX}/token-boosts/latest/v1`],["dxCto",`${DX}/community-takeovers/latest/v1`],
@@ -254,4 +292,4 @@ async function quotes(get,mints,maxAge){const out={},age=maxAge==null?20000:maxA
  failed+=Math.max(0,miss.length-40);
  return{q:out,failed}}
 
-return{makeGet,scan,checkOne,enrich,quotes,checks,verdictOf,score,buySignal,parseInput,money,ageTxt,txB,txS,chg,vol,VERDICT,DEFAULTS,FEEDS,B58}});
+return{makeGet,scan,checkOne,enrich,quotes,checks,verdictOf,score,buySignal,flowNet,exitCall,fillCost,parseInput,money,ageTxt,txB,txS,chg,vol,VERDICT,DEFAULTS,FEEDS,B58}});
