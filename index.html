@@ -128,8 +128,8 @@ async function loadHist(){try{const r=await fetch("history.json",{cache:"no-stor
  drawIf("record");drawIf("coach")}
 
 /* ---------- pieces ---------- */
-// DEX Screener's image server won't show its pictures on other sites, so those go through a free image proxy
-const iconUrl=u=>{u=safe(u);if(!u)return null;return/\/\/cdn\.dexscreener\.com\//.test(u)?`https://wsrv.nl/?url=${encodeURIComponent(u)}&w=96&h=96&fit=cover`:u};
+// many coin pictures (IPFS gateways, DEX Screener's server) refuse to show on other sites, so every picture goes through a free image proxy
+const iconUrl=u=>{u=safe(u);if(!u)return null;return/^https:\/\/wsrv\.nl\//.test(u)?u:`https://wsrv.nl/?url=${encodeURIComponent(u)}&w=96&h=96&fit=cover`};
 function avatar(c){const u=iconUrl(c.icon);return `<span class="av">${esc(((c.sym||c.name||"?").replace(/^\$/,"")[0]||"?").toUpperCase())}${u?`<img src="${esc(u)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:""}</span>`}
 const bad=c=>(c.checks||[]).filter(f=>f.level==="bad"),warns=c=>(c.checks||[]).filter(f=>f.level==="warn");
 function why(c){const B=bad(c),W=warns(c),f=(cl,ic,t)=>`<span class="fl"><span class="${cl}">${ic}</span> ${esc(t)}</span>`;
