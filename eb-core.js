@@ -213,6 +213,10 @@ function exitCall(o){const{x,liq,lq0,curve,net,creatorSold,half,ageH,fade,gone}=
  return{k:"hold",r:"Holding"}}
 // what a real trade would lose to fees and price impact: about 1% plus the trade's size against the pool, more on launch curves
 const fillCost=(usd,liq,curve)=>curve||!liq?.02:Math.min(.15,.01+2*usd/Math.max(liq,1000));
+// what selling coins worth `usd` at the current price really pays back. A pool can only pay out the cash it holds, so a
+// wild price on a thin or drained pool can't turn $10 into millions (it did once: a rugged pool's last price "paid" $5.9M).
+// Constant-product pool math on the pool's cash side, less about 1% in fees; a launch curve or unknown pool counts as a small $10k pool.
+const sellOut=(usd,liq,curve)=>{if(!(usd>0))return 0;const half=(curve||!liq?1e4:Math.max(liq,1))/2;return usd*half/(half+usd)*(curve?.98:.99)};
 
 /* ---------- the sources ---------- */
 const FEEDS={
@@ -292,4 +296,4 @@ async function quotes(get,mints,maxAge){const out={},age=maxAge==null?20000:maxA
  failed+=Math.max(0,miss.length-40);
  return{q:out,failed}}
 
-return{makeGet,scan,checkOne,enrich,quotes,checks,verdictOf,score,buySignal,flowNet,exitCall,fillCost,parseInput,money,ageTxt,txB,txS,chg,vol,VERDICT,DEFAULTS,FEEDS,B58}});
+return{makeGet,scan,checkOne,enrich,quotes,checks,verdictOf,score,buySignal,flowNet,exitCall,fillCost,sellOut,parseInput,money,ageTxt,txB,txS,chg,vol,VERDICT,DEFAULTS,FEEDS,B58}});

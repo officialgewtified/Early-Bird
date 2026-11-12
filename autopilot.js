@@ -20,10 +20,17 @@ const fresh=(name,start)=>({name,start:start||START,cash:start||START,pos:{},his
  if(A.v===1){const o=A;A={v:2,started:o.started,runs:o.runs||0,strats:{coach:Object.assign(fresh(STRATS[0][1],o.start),{cash:o.cash,pos:o.pos||{},hist:o.hist||[],log:o.log||[],eq:o.eq||[],bought:o.bought||[],value:o.value})},pools:{},tradeAt:{}}}
  for(const[k,n]of STRATS)if(!A.strats[k])A.strats[k]=fresh(n);
  A.pools=A.pools||{};A.tradeAt=A.tradeAt||{};
+ // one-time repair: before sales were capped by the pool's size, drained pools' bad prices "sold" $15 of coins for $9M.
+ // A sale that paid over 1,000x is that glitch, not a trade: count it as getting the stake back, so the totals are honest.
+ if(!A.fix1){for(const S of Object.values(A.strats))for(const h of S.hist)if(h.in>0&&h.out>h.in*1000&&!h.voided){const g=h.out-h.in;
+   S.cash=r2(S.cash-g);S.eq=S.eq.map(([t,v])=>[t,t>=h.t1?r2(v-g):v]);
+   for(const l of S.log)if(l.m===h.m&&l.a!=="buy"&&l.t===h.t1){l.usd=r2(h.in);l.pl=0;l.why=(l.why||"")+" (voided: bad price data)"}
+   h.out=h.in;h.voided=true;h.why+=" (voided: bad price data)";console.log(`Voided a glitched sale of ${h.s}: it claimed $${r2(h.in+g)}`)}
+  A.fix1=Date.now()}
  const get=EB.makeGet(globalThis.fetch),now=Date.now();
  const note=(S,a,o)=>S.log.unshift(Object.assign({t:now,a},o));
  function sell(S,m,f,why,c,gone){const p=S.pos[m];if(!p)return;const px=gone?0:c.price;if(px==null)return;
-  const qty=p.qty*f,out=qty*px*(1-EB.fillCost(qty*px,c.liq,c.curve)),cin=p.cost*f;
+  const qty=p.qty*f,out=EB.sellOut(qty*px,c.liq,c.curve),cin=p.cost*f;
   S.cash+=out;S.hist.unshift({m,s:p.s,n:p.n,in:r2(cin),out:r2(out),t0:p.t,t1:now,why});
   note(S,f>=.999?"sell":"half",{m,s:p.s,usd:r2(out),pl:r2(out-cin),why});
   if(f>=.999)delete S.pos[m];else{p.qty-=qty;p.cost-=cin;p.half=true}}
@@ -45,7 +52,7 @@ const fresh=(name,start)=>({name,start:start||START,cash:start||START,pos:{},his
   if(!p.dev&&c.dev)p.dev=c.dev;
   const f=EB.flowNet(c,TR[m]||null,p.dev,now),x=c.price&&p.p0?c.price/p.p0:null;
   const d=EB.exitCall({x,liq:c.liq,lq0:p.lq0,curve:c.curve,net:f.net,creatorSold:f.creatorSold,half:p.half,ageH:(now-p.t)/36e5,fade:f.fade,gone:c.gone&&!c.price});
-  p.last={px:c.price,x:x!=null?Math.round(x*1000)/1000:null,k:d.k,r:d.r,net:f.net,liq:c.liq,at:now};
+  p.last={px:c.price,x:x!=null?Math.round(x*1000)/1000:null,k:d.k,r:d.r,net:f.net,liq:c.liq,curve:!!c.curve,at:now};
   if(d.k==="out")sell(S,m,1,d.r,c,c.gone&&!c.price);
   else if(d.k==="tp"&&d.r==="5x")sell(S,m,1,"Sold at 5x",c);
   else if(d.k==="tp"&&!p.half)sell(S,m,.5,d.r==="2x"?"Took half at 2x":"Took half, sellers taking over",c);
@@ -66,7 +73,7 @@ const fresh=(name,start)=>({name,start:start||START,cash:start||START,pos:{},his
  const pool=coins.filter(c=>!A.strats.random.bought.includes(c.mint));for(let i=0;i<RANDOM_PER_RUN&&pool.length;i++){const c=pool.splice(Math.floor(Math.random()*pool.length),1)[0];if(buy("random",c,`Picked at random (${c.verdict})`))nb.random++}
 
  // 3. what each is worth now (what it would get selling everything, after fees), and keep the file small
- for(const S of Object.values(A.strats)){let val=S.cash;for(const m in S.pos){const p=S.pos[m],px=(p.last&&p.last.px)||p.p0;val+=p.qty*px*(1-EB.fillCost(p.qty*px,p.last&&p.last.liq,false))}
+ for(const S of Object.values(A.strats)){let val=S.cash;for(const m in S.pos){const p=S.pos[m],px=(p.last&&p.last.px)||p.p0;val+=EB.sellOut(p.qty*px,p.last&&p.last.liq,p.last&&p.last.curve)}
   S.cash=r2(S.cash);S.value=r2(val);S.eq.push([now,S.value]);S.eq=S.eq.slice(-2000);S.log=S.log.slice(0,150);S.hist=S.hist.slice(0,1500)}
  const keep=new Set(Object.values(A.strats).flatMap(S=>Object.keys(S.pos)));for(const m of Object.keys(A.pools))if(!keep.has(m))delete A.pools[m];for(const m of Object.keys(A.tradeAt))if(!keep.has(m))delete A.tradeAt[m];
  A.runs++;A.updated=now;A.lastRun={scanned:coins.length,sigs:sigs.length,bought:nb};
