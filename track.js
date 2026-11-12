@@ -1,10 +1,12 @@
 /* Early Bird's report card, kept honestly: every hour this records the coins the Fresh list shows (Passed, Caution and
    Sketchy alike), with the verdict, Early score and coach's buy signal they had when first seen. It then re-checks each one 1, 3, 6, 12 and 24
-   hours later, so the site can show how each kind of coin really did. Runs in GitHub Actions; writes history.json.
+   hours later, so the site can show how each kind of coin really did. It also records coins on the Survivors list (coins that
+   already lasted 6 hours to 3 weeks, marked sv:1) and follows those for longer, at 3, 7 and 30 days, to see whether buying
+   and holding them actually works. Runs in GitHub Actions; writes history.json.
    usage: node track.js */
 "use strict";
 const fs=require("fs"),path=require("path"),EB=require("./eb-core.js");
-const FILE=path.join(__dirname,"history.json"),KEEP_DAYS=8,PER_RUN=30,CHECKS=[1,3,6,12,24];
+const FILE=path.join(__dirname,"history.json"),KEEP_DAYS=8,PER_RUN=30,CHECKS=[1,3,6,12,24],LONG=[72,168,720],SURV_PER_RUN=10;
 // finished coins (every check done) also go into archive.json for 60 days, and insights.json sums up what predicted a dead coin
 const AFILE=path.join(__dirname,"archive.json"),IFILE=path.join(__dirname,"insights.json"),ARCH_DAYS=60;
 const r2=x=>x==null||!isFinite(x)?null:Math.round(x*100)/100;
@@ -25,28 +27,34 @@ const r3=x=>x==null||!isFinite(x)?null:Math.round(x*1000)/1000,r0=x=>x==null||!i
  let hotSig=0;try{const hot=await EB.scan(get,"hot",{now});const seen2=new Set(h.rows.map(x=>x.m));
   for(const c of hot.coins){const bs=EB.buySignal(c).lvl;if(!bs||seen2.has(c.mint)||!c.price)continue;
    h.rows.push(Object.assign({m:c.mint,s:String(c.sym||"").slice(0,16),t:now,v:c.verdict,sc:c.score,p:c.price,mc:r0(c.mcap),lq:r0(c.liq),a:r3(c.ageH),bs,h:1},extra(c)));hotSig++}}catch(e){}
- // 2. re-check coins that are due (1, 3, 6, 12 and 24 hours after they were first seen)
- const due=h.rows.filter(x=>CHECKS.some(k=>x["c"+k]===undefined&&now-x.t>=k*36e5));
+ // the Survivors list: the ones the holder would buy first, then a few others so there's something to compare them with
+ let survAdded=0;try{const sv=await EB.scan(get,"survivors",{now});const seen3=new Set(h.rows.filter(x=>x.sv).map(x=>x.m));
+  const S=sv.coins.filter(c=>c.price&&!seen3.has(c.mint)),P=[...S.filter(c=>c.surv&&c.surv.lvl),...S.filter(c=>!(c.surv&&c.surv.lvl))].slice(0,SURV_PER_RUN);
+  for(const c of P){h.rows.push(Object.assign({m:c.mint,s:String(c.sym||"").slice(0,16),t:now,v:c.verdict,sc:c.score,p:c.price,mc:r0(c.mcap),lq:r0(c.liq),a:r3(c.ageH),sv:1,ss:c.surv?c.surv.lvl:0},extra(c)));survAdded++}}catch(e){}
+ // 2. re-check coins that are due (1, 3, 6, 12 and 24 hours after they were first seen; Survivors coins also at 3, 7 and 30 days,
+ //    by which time they've moved to the archive)
+ let arch=[];try{arch=JSON.parse(fs.readFileSync(AFILE,"utf8")).rows||[]}catch(e){}
+ const isDue=(x,K)=>K.some(k=>x["c"+k]===undefined&&now-x.t>=k*36e5);
+ const due=[...h.rows.filter(x=>isDue(x,CHECKS)),...arch.filter(x=>x.sv&&isDue(x,LONG))];
  let checked=0;
  if(due.length){const{q,failed}=await EB.quotes(get,due.map(x=>x.m),0);
   for(const x of due){const n=q[x.m];if(!n&&failed)continue;     // a failed lookup isn't a dead coin; try again next hour
-   for(const k of CHECKS){if(x["c"+k]!==undefined||now-x.t<k*36e5)continue;
+   for(const k of x.sv?CHECKS.concat(LONG):CHECKS){if(x["c"+k]!==undefined||now-x.t<k*36e5)continue;
     if(now-x.t>k*36e5*1.5+36e5){x["c"+k]=null;continue}   // too late to count as that checkpoint (e.g. a check added after the coin was first seen)
     // [price change since first seen, pool size now vs then]; no pool found at all counts as gone
     // pool size isn't reported for coins still on a launch curve, so that's unknown (null), not an empty pool
     x["c"+k]=n&&n.price?[r3(n.price/x.p-1),x.lq&&n.liq&&!n.curve?r3(n.liq/x.lq):null]:[-1,0];checked++}}}
  // 3. keep about a week
  // 3b. archive the finished ones before they age out, and work out what predicted a dead coin
- let arch=[];try{arch=JSON.parse(fs.readFileSync(AFILE,"utf8")).rows||[]}catch(e){}
  const id=x=>x.m+"|"+x.t,inA=new Set(arch.map(id)),done=x=>CHECKS.every(k=>x["c"+k]!==undefined);
  for(const x of h.rows)if(done(x)&&!inA.has(id(x))){arch.push(x);inA.add(id(x))}
  arch=arch.filter(x=>now-x.t<ARCH_DAYS*864e5).sort((a,b)=>a.t-b.t);
  fs.writeFileSync(AFILE,'{"v":1,"rows":[\n'+arch.map(x=>JSON.stringify(x)).join(",\n")+"\n]}\n");   // one coin per line, so each hour's change is small
  fs.writeFileSync(IFILE,JSON.stringify(insights([...arch,...h.rows.filter(x=>!inA.has(id(x)))],now)));
  h.rows=h.rows.filter(x=>now-x.t<KEEP_DAYS*864e5);
- h.updated=now;h.runs=(h.runs||0)+1;h.last={coins:scan.coins.length,added,checked,fails:scan.fails};
+ h.updated=now;h.runs=(h.runs||0)+1;h.last={coins:scan.coins.length,added,survAdded,checked,fails:scan.fails};
  fs.writeFileSync(FILE,JSON.stringify(h));
- console.log(`Fresh list: ${scan.coins.length} coins, ${added} new recorded, ${hotSig} Hot buy signals, ${checked} re-checks, sources down: ${scan.fails.join(", ")||"none"}. ${h.rows.length} coins on record.`);
+ console.log(`Fresh list: ${scan.coins.length} coins, ${added} new recorded, ${hotSig} Hot buy signals, ${survAdded} Survivors, ${checked} re-checks, sources down: ${scan.fails.join(", ")||"none"}. ${h.rows.length} coins on record.`);
 })().catch(e=>{console.error(e);process.exit(1)});
 
 /* what the record says so far: how each warning flag, verdict and kind of coin did, and whether the coach's buy signals beat the rest */
@@ -55,7 +63,7 @@ function insights(rows,now){
  const n24=rows.filter(x=>x.c24).length,n6=rows.filter(x=>x.c6).length,K=n24>=150?"c24":n6>=150?"c6":"c1";
  const sum=(X,k=K)=>{X=X.filter(x=>x[k]);const n=X.length;if(!n)return{n:0};const xs=X.map(x=>x[k][0]).sort((a,b)=>a-b);
   return{n,dead:r2(X.filter(x=>dead(x,k)).length/n),up:r2(X.filter(x=>x[k][0]>0).length/n),dbl:r2(X.filter(x=>x[k][0]>=1).length/n),med:r3(xs[Math.floor((n-1)/2)])}};
- const R=rows.filter(x=>x[K]&&!x.h);   // the Fresh list only
+ const R=rows.filter(x=>x[K]&&!x.h&&!x.sv);   // the Fresh list only
  const has=(x,f)=>(x.f||[]).includes(f);
  const flags=[...new Set(R.flatMap(x=>x.f||[]))].map(f=>({f,with:sum(R.filter(x=>has(x,f))),without:sum(R.filter(x=>!has(x,f)))})).filter(x=>x.with.n>=5)
   .sort((a,b)=>(b.with.dead-b.without.dead)-(a.with.dead-a.without.dead));
@@ -68,4 +76,6 @@ function insights(rows,now){
   top10:bucket(x=>x.top,[0,20,35,50,101],["Under 20%","20% to 35%","35% to 50%","Over 50%"]),
   score:bucket(x=>x.sc,[0,30,50,70,100],["Under 30","30 to 49","50 to 69","70 or more"])};
  const coach={};for(const k of ["c1","c6","c24"]){const X=rows.filter(x=>x[k]&&x.bs!=null);coach[k]={sig:sum(X.filter(x=>x.bs>0),k),rest:sum(X.filter(x=>x.bs===0&&!x.h),k)}}
- return{updated:now,k:K,base:sum(R),verdicts,flags,buckets,coach}}
+ // the Survivors list, held longer: the holder's picks (a hold signal) against the rest of the list, 1 to 30 days later
+ const SV=rows.filter(x=>x.sv),surv={};for(const k of ["c24","c72","c168","c720"])surv[k]={sig:sum(SV.filter(x=>x.ss>0),k),rest:sum(SV.filter(x=>!x.ss),k)};
+ return{updated:now,k:K,base:sum(R),verdicts,flags,buckets,coach,surv}}

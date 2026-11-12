@@ -32,6 +32,7 @@
 <nav class="dock" aria-label="Sections"><div class="in" role="tablist">
  <button data-tab="fresh" role="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12l6-5"/><circle cx="16.5" cy="15.5" r="1.3" fill="currentColor" stroke="none"/></svg>Fresh</button>
  <button data-tab="hot" role="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3c1 3.5 5.5 5.5 5.5 10.5A5.5 5.5 0 0 1 12 19a5.5 5.5 0 0 1-5.5-5.5c0-2.5 1.5-4 2.5-5 .2 2 1 3 2 3.5C11 9 11.5 5.5 12 3z"/><path d="M12 19a2.2 2.2 0 0 1-2.2-2.2c0-1.4 1.4-2.2 2.2-3.6.8 1.4 2.2 2.2 2.2 3.6A2.2 2.2 0 0 1 12 19z"/></svg>Hot</button>
+ <button data-tab="survivors" role="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21v-9"/><path d="M12 12c0-4 3-6.5 7.5-6.5 0 4-3 6.5-7.5 6.5z"/><path d="M12 15c0-3-2.5-5-6.5-5 0 3 2.5 5 6.5 5z"/></svg>Hold</button>
  <button data-tab="coach" role="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12.5h4l2.5-6 4.5 12 3-7.5 1.5 1.5h3.5"/></svg>Coach</button>
  <button data-tab="check" role="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7.5 3v5.5c0 4.3-3 7.7-7.5 9.5-4.5-1.8-7.5-5.2-7.5-9.5V6z"/><path d="M8.6 12.2l2.4 2.4 4.6-4.8"/></svg>Check</button>
  <button data-tab="watch" role="tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></svg>Watch</button>
@@ -96,10 +97,11 @@ function applyTheme(){const t=SET.theme||"money",el=document.documentElement;
  const m=document.querySelector('meta[name="theme-color"]');if(m)m.setAttribute("content",t==="custom"?(SET.custom||PRESETS.studio).bg:THEMEBG[t]||THEMEBG.studio)}
 let SET=Object.assign({},DEF,LS.get("eb_set",{}));
 let WATCH=LS.get("eb_watch",[]),BUYS=LS.get("eb_buys",[]),RECENT=LS.get("eb_recent",[]),LIMIT=+LS.get("eb_limit",0)||0;
-const S={tab:LS.get("eb_tab","fresh"),fresh:null,hot:null,busy:{},err:{},sort:LS.get("eb_sort","score"),off:{},
+const LISTS=["fresh","hot","survivors"];   // the three coin lists
+const S={tab:LS.get("eb_tab","fresh"),fresh:null,hot:null,survivors:null,busy:{},err:{},sort:LS.get("eb_sort","score"),off:{},
  check:{q:"",c:null,busy:false,err:""},feat:{},charts:{},tf:"8h",quotes:{},qAt:0,qFail:0,hist:null,seen:{},open:null};
 const COINS=new Map();             // every coin looked at this visit, by address
-if(!["fresh","hot","coach","check","watch","record"].includes(S.tab))S.tab="fresh";
+if(![...LISTS,"coach","check","watch","record"].includes(S.tab))S.tab="fresh";
 function toast(t){const f=$("#float");f.innerHTML=`<div class="toast" role="status">${esc(t)}</div>`;clearTimeout(toast.t);toast.t=setTimeout(()=>{f.innerHTML=""},2600)}
 const ago=t=>{const s=Math.max(0,Math.round((Date.now()-t)/1000));return s<5?"just now":s<60?s+"s ago":s<3600?Math.round(s/60)+"m ago":Math.round(s/3600)+"h ago"};
 
@@ -139,21 +141,24 @@ function why(c){const B=bad(c),W=warns(c),f=(cl,ic,t)=>`<span class="fl"><span c
 const sig=n=>`<span class="sig" aria-hidden="true">${[1,2,3,4,5].map(i=>`<i class="${n>=i*20-10?"on":""}"></i>`).join("")}</span>`;
 function row(c){const ch=EB.chg(c,"h1");
  return `<button class="row v-${c.verdict}" data-coin="${esc(c.mint)}">${avatar(c)}
- <span style="min-width:0"><span class="r1"><b>${esc(c.name||c.sym)}</b><span class="sym">$${esc(c.sym)}</span>${c.isNew?'<span class="nw">New</span>':""}${sigOf(c).lvl?'<span class="bsig">Signal</span>':""}</span>
+ <span style="min-width:0"><span class="r1"><b>${esc(c.name||c.sym)}</b><span class="sym">$${esc(c.sym)}</span>${c.isNew?'<span class="nw">New</span>':""}${holdLvl(c)?'<span class="bsig">Hold</span>':sigOf(c).lvl?'<span class="bsig">Signal</span>':""}</span>
   <span class="r2"><span><b>${ageTxt(c.ageH)}</b> old</span><span>MC <b>${money(c.mcap)}</b></span><span>Pool <b>${c.curve?"curve":money(c.liq)}</b></span>${ch!=null?`<span class="${cls(ch)}">${pct(ch)} 1h</span>`:""}</span>
   <span class="r3"><span class="vw">${VERDICT[c.verdict]}</span>${why(c)}</span></span>
  <span class="rs" aria-label="Early score ${c.score}">${sig(c.score)}<b>${c.score}</b></span></button>`}
 function skeleton(n=5){return `<div class="rows">${Array.from({length:n},()=>'<div class="ghost"></div>').join("")}</div>`}
 const VR={passed:0,caution:1,unchecked:2,sketchy:3};
-function sortCoins(L){const by={score:(a,b)=>VR[a.verdict]-VR[b.verdict]||b.score-a.score,new:(a,b)=>(a.ageH??1e9)-(b.ageH??1e9),
- move:(a,b)=>(EB.chg(b,"h1")??-1e9)-(EB.chg(a,"h1")??-1e9),mcap:(a,b)=>(a.mcap??1e18)-(b.mcap??1e18)}[S.sort]||((a,b)=>b.score-a.score);return L.slice().sort(by)}
+// the Survivors list keeps its own sort, since the Early score (which favors brand-new coins) means little there
+const sortKey=mode=>mode==="survivors"?(["hold","old","move","mcap"].includes(S.sortS)?S.sortS:"hold"):S.sort;
+function sortCoins(L,mode){const by={score:(a,b)=>VR[a.verdict]-VR[b.verdict]||b.score-a.score,new:(a,b)=>(a.ageH??1e9)-(b.ageH??1e9),old:(a,b)=>(b.ageH??-1)-(a.ageH??-1),
+ hold:(a,b)=>holdLvl(b)-holdLvl(a)||VR[a.verdict]-VR[b.verdict]||((b.surv&&b.surv.why.length)||0)-((a.surv&&a.surv.why.length)||0),
+ move:(a,b)=>(EB.chg(b,"h1")??-1e9)-(EB.chg(a,"h1")??-1e9),mcap:(a,b)=>(a.mcap??1e18)-(b.mcap??1e18)}[sortKey(mode)]||((a,b)=>b.score-a.score);return L.slice().sort(by)}
 
 /* ---------- the radar: every coin is a dot; closer to the middle is newer, bigger is a bigger market cap, color is the verdict ---------- */
 const SWEEP=4.8,T0=performance.now();
 const RINGS={1:[[1/12,"5m"],[.25,"15m"],[.5,"30m"],[1,"1h"]],6:[[.5,"30m"],[1,"1h"],[3,"3h"],[6,"6h"]],24:[[1,"1h"],[6,"6h"],[12,"12h"],[24,"24h"]],
- 72:[[6,"6h"],[24,"1d"],[48,"2d"],[72,"3d"]],168:[[24,"1d"],[48,"2d"],[96,"4d"],[168,"7d"]]};
+ 72:[[6,"6h"],[24,"1d"],[48,"2d"],[72,"3d"]],168:[[24,"1d"],[48,"2d"],[96,"4d"],[168,"7d"]],504:[[24,"1d"],[72,"3d"],[168,"7d"],[504,"21d"]]};
 const hash=s=>{let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0};
-function radar(mode,coins,msg){const maxA=mode==="hot"?168:SET.maxAgeH,maxM=mode==="hot"?5e7:SET.maxMcap,C=200,R=184,el=((performance.now()-T0)/1000)%SWEEP;
+function radar(mode,coins,msg){const maxA=mode==="hot"?168:mode==="survivors"?504:SET.maxAgeH,maxM=mode==="hot"?5e7:mode==="survivors"?2.5e7:SET.maxMcap,C=200,R=184,el=((performance.now()-T0)/1000)%SWEEP;
  const rr=a=>R*Math.sqrt(Math.max(0,Math.min(1,a/maxA))),deg=Math.PI/180;
  const rings=(RINGS[maxA]||RINGS[24]).map(([a,l])=>{const r=rr(a);return `<circle class="ring" cx="${C}" cy="${C}" r="${r.toFixed(1)}"/><text class="rl" x="${(C+r*Math.sin(34*deg)+3).toFixed(1)}" y="${(C-r*Math.cos(34*deg)-3).toFixed(1)}">${l}</text>`}).join("");
  let ticks="";for(let i=0;i<72;i++){const a=i*5*deg,big=i%6===0,r1=R-(big?9:5);ticks+=`<line class="tick${big?" big":""}" x1="${(C+R*Math.sin(a)).toFixed(1)}" y1="${(C-R*Math.cos(a)).toFixed(1)}" x2="${(C+r1*Math.sin(a)).toFixed(1)}" y2="${(C-r1*Math.cos(a)).toFixed(1)}"/>`}
@@ -181,38 +186,40 @@ function legend(mode,all){const off=offOf(mode),n=g=>all.filter(c=>groupOf(c)===
 
 /* ---------- the featured coin, shown like a product on a drop page, and the strip of the next ones ---------- */
 const ARROW=d=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="${d<0?"M15 5l-7 7 7 7":"M9 5l7 7-7 7"}"/></svg>`;
-function picks(mode){const r=S[mode];if(!r)return[];return r.coins.filter(c=>c.verdict!=="sketchy").sort((a,b)=>VR[a.verdict]-VR[b.verdict]||b.score-a.score).slice(0,8)}
+const holdLvl=c=>c.surv?c.surv.lvl:0,HOLDW=["No hold signal","Okay hold signal","Strong hold signal"];
+function picks(mode){const r=S[mode];if(!r)return[];return r.coins.filter(c=>c.verdict!=="sketchy").sort((a,b)=>(mode==="survivors"?holdLvl(b)-holdLvl(a):0)||VR[a.verdict]-VR[b.verdict]||b.score-a.score).slice(0,8)}
 function hero(mode){const P=picks(mode);if(!P.length)return"";let i=Math.max(0,P.findIndex(c=>c.mint===S.feat[mode]));const c=P[i];S.feat[mode]=c.mint;
  const sym=String(c.sym||"").replace(/^\$/,"").slice(0,12),wfs=Math.round(Math.max(78,Math.min(210,360/(Math.max(3,sym.length)*.46)))),ch=EB.chg(c,"h1"),w=WATCH.some(x=>x.m===c.mint);
- const head=mode==="fresh"?"Get in<br>early.":"Hot right<br>now.";
+ const head=mode==="fresh"?"Get in<br>early.":mode==="survivors"?"Still<br>standing.":"Hot right<br>now.";
  return `<section class="hero v-${c.verdict}" aria-label="Top pick"><div class="wmk" style="--wfs:${wfs}px" aria-hidden="true">${esc(sym)}</div>
   <div class="htop"><h2>${head}</h2><div class="rank">Pick<b>${i+1}/${P.length}</b></div></div>
   <button class="shot" data-coin="${esc(c.mint)}" aria-label="Open ${esc(c.name||c.sym)}">${avatar(c)}</button>
   <div class="spec"><div class="nm">${esc(c.name||c.sym)}</div><div class="price"><b>${money(c.mcap)}</b>${ch!=null?`<span class="${cls(ch)}">${pct(ch)} 1h</span>`:""}</div>
    <div class="sub2">$${esc(c.sym)}, ${ageTxt(c.ageH)} old, market cap</div></div>
-  <div class="tags"><span class="tag"><i></i>${VERDICT[c.verdict]}</span><span class="tag">Early score ${c.score}</span>${c.holders!=null?`<span class="tag">${c.holders.toLocaleString()} holders</span>`:""}</div>
+  <div class="tags"><span class="tag"><i></i>${VERDICT[c.verdict]}</span><span class="tag">${mode==="survivors"?HOLDW[holdLvl(c)]:`Early score ${c.score}`}</span>${c.holders!=null?`<span class="tag">${c.holders.toLocaleString()} holders</span>`:""}</div>
   <div class="acts"><button class="view" data-coin="${esc(c.mint)}">View coin</button><button class="ib" data-watch="${esc(c.mint)}" aria-label="${w?"Stop watching":"Watch"}">${w?"★":"☆"}</button></div>
   <div class="nav"><button class="ib" data-featstep="${mode}|-1" aria-label="Previous pick">${ARROW(-1)}</button><span class="bar"><i style="left:${P.length>1?(i/(P.length-1)*100).toFixed(0):50}%"></i></span><button class="ib" data-featstep="${mode}|1" aria-label="Next pick">${ARROW(1)}</button></div></section>
- <div class="strip" role="list">${P.map(x=>`<button class="card2 v-${x.verdict} ${x.mint===c.mint?"on":""}" data-feat="${mode}|${esc(x.mint)}" role="listitem"><span class="vdot"></span>${avatar(x)}<span style="min-width:0"><b>${esc(x.name||x.sym)}</b><small>MC ${money(x.mcap)}</small><small>Score ${x.score}</small></span><span class="go">${ARROW(1)}</span></button>`).join("")}</div>`}
+ <div class="strip" role="list">${P.map(x=>`<button class="card2 v-${x.verdict} ${x.mint===c.mint?"on":""}" data-feat="${mode}|${esc(x.mint)}" role="listitem"><span class="vdot"></span>${avatar(x)}<span style="min-width:0"><b>${esc(x.name||x.sym)}</b><small>MC ${money(x.mcap)}</small><small>${mode==="survivors"?`${ageTxt(x.ageH)} old`:`Score ${x.score}`}</small></span><span class="go">${ARROW(1)}</span></button>`).join("")}</div>`}
 
 /* ---------- Fresh and Hot ---------- */
-function listView(mode){const r=S[mode],fresh=mode==="fresh";
- const head=`<h2 class="pt">${fresh?"Fresh launches":"Hot right now"}</h2><p class="sub">${fresh?`Under ${ageTxt(SET.maxAgeH)} old and under ${money(SET.maxMcap)}, ranked by Early score: how early it is and how much real buying there is. It isn't a prediction.`
+function listView(mode){const r=S[mode],fresh=mode==="fresh",surv=mode==="survivors";
+ const head=`<h2 class="pt">${fresh?"Fresh launches":surv?"Survivors":"Hot right now"}</h2><p class="sub">${surv?"Coins that already lasted 6 hours to 3 weeks and are still being traded, for buying and holding instead of flipping. Early Bird's record showed coins found under an hour old usually died within a day, while ones that had lasted 6 to 24 hours did much better. A <b>Hold</b> tag means holders and buying are still growing without a giant pump. Most meme coins still fade, so it isn't a prediction.":fresh?`Under ${ageTxt(SET.maxAgeH)} old and under ${money(SET.maxMcap)}, ranked by Early score: how early it is and how much real buying there is. It isn't a prediction.`
   :"Up to a week old and trending this hour, or full of real traders. Later than Fresh, with more proof people are actually buying."}</p>`;
  const cap=`<p class="cap">Each dot is a coin. Newer coins sit closer to the middle and bigger dots have bigger market caps. Tap one to check it.</p>`;
  if(!r)return `<section class="scope">${radar(mode,[],S.err[mode]?"No signal":"Scanning…")}${cap}</section>${head}${S.err[mode]?`<div class="oops">${esc(S.err[mode])}</div>`:skeleton()}`;
  const off=offOf(mode),all=r.coins,vis=all.filter(c=>!off.has(groupOf(c)));
  let h=`${hero(mode)}<h2 class="pt">Radar</h2><section class="scope">${radar(mode,vis)}${cap}${legend(mode,all)}</section>${head}`;
- h+=`<div class="sorts" role="group" aria-label="Sort">${[["score","Early score"],["new","Newest"],["move","Movers"],["mcap","Smallest"]].map(([k,l])=>`<button class="so ${S.sort===k?"on":""}" data-sort="${k}">${l}</button>`).join("")}</div>`;
- const L=sortCoins(vis);
- h+=L.length?`<div class="rows">${L.map(row).join("")}</div>`:`<div class="empty">${all.length?"Everything here is filtered out. Tap a color above to show it again.":fresh?"No coins fit your settings right now. Try a longer age or a bigger market cap in Settings.":"Nothing is trending that fits right now."}</div>`;
+ const so=sortKey(mode);
+ h+=`<div class="sorts" role="group" aria-label="Sort">${(surv?[["hold","Hold signal"],["old","Lasted longest"],["move","Movers"],["mcap","Smallest"]]:[["score","Early score"],["new","Newest"],["move","Movers"],["mcap","Smallest"]]).map(([k,l])=>`<button class="so ${so===k?"on":""}" data-sort="${k}">${l}</button>`).join("")}</div>`;
+ const L=sortCoins(vis,mode);
+ h+=L.length?`<div class="rows">${L.map(row).join("")}</div>`:`<div class="empty">${all.length?"Everything here is filtered out. Tap a color above to show it again.":fresh?"No coins fit your settings right now. Try a longer age or a bigger market cap in Settings.":surv?"No survivors fit right now. The list checks again every few minutes.":"Nothing is trending that fits right now."}</div>`;
  if(r.fails.length)h+=`<p class="fine">Some sources didn't answer this time, so the list may be short. It tries again on the next refresh.</p>`;
  return h}
 
 /* ---------- one coin ---------- */
 const BUYAT={fomo:["Fomo",m=>`https://fomo.family/tokens/solana/${m}`],jup:["Jupiter",m=>`https://jup.ag/swap/SOL-${m}`],phantom:["Phantom",m=>`https://phantom.com/tokens/solana/${m}`]};
 const buyAt=()=>BUYAT[SET.buy]||BUYAT.fomo;
-function likeLine(c){const R=((S.hist&&S.hist.rows)||[]).filter(x=>!x.h);if(!R.length)return"";
+function likeLine(c){const R=((S.hist&&S.hist.rows)||[]).filter(x=>!x.h&&!x.sv);if(!R.length)return"";
  const lo=Math.max(0,c.score-12),hi=Math.min(99,c.score+12),k=R.filter(x=>x.c24).length>=40?"c24":"c6",lab=k==="c24"?"24 hours":"6 hours";
  const M=R.filter(x=>x.v===c.verdict&&x.sc>=lo&&x.sc<=hi&&x[k]);
  if(M.length<15)return `<div class="like">Not enough coins like this in Early Bird's record yet to say how they usually do. <span class="fine">(${M.length} so far)</span></div>`;
@@ -234,7 +241,7 @@ function coinBody(c,loading){const w=WATCH.some(x=>x.m===c.mint),hc=c.st&&c.st.h
  </div><div class="chartbox" data-mint="${me}">${chartHTML(c)}</div><div class="cs-rest">
  <div class="moves">${["m5","h1","h6","h24"].map(k=>{const x=EB.chg(c,k);return `<span>${k.slice(1)}${k[0]}<b class="${cls(x)}">${pct(x)}</b></span>`}).join("")}</div>
  <div class="ctabs" role="tablist">${T.map(([k,l])=>`<button class="ctab ${tab===k?"on":""}" data-ctab="${k}" role="tab" aria-selected="${tab===k}">${l}${k==="safe"&&(nb||nw)?`<i class="${nb?"b":"w"}">${nb||nw}</i>`:""}</button>`).join("")}</div>
- ${pane("over",`${coachLine(c)}<h4 class="h3">What's going on</h4><div class="readbox" data-mint="${me}">${readHTML(c)}</div>
+ ${pane("over",`${coachLine(c)}${holdLine(c)}<h4 class="h3">What's going on</h4><div class="readbox" data-mint="${me}">${readHTML(c)}</div>
   <h4 class="h3">How long to hold</h4>${timingHTML(c)}
   <h4 class="h3">The numbers</h4><div class="readout">${ro("Market cap",money(c.mcap))}${ro("Pool",c.curve?"Curve":money(c.liq))}${ro("Holders",c.holders!=null?c.holders.toLocaleString():"–",hc!=null?`<em class="${cls(hc)}">${pct(hc)} 1h</em>`:"")}${ro("Top 10 hold",c.top10!=null?c.top10.toFixed(0)+"%":"–")}
    ${ro("Creator holds",c.devPct!=null?(c.devPct<.1?"~0%":c.devPct.toFixed(1)+"%"):"–")}${ro("Real traders",c.organicLabel?c.organicLabel[0].toUpperCase()+c.organicLabel.slice(1):"–")}${ro("Traded 1h",v!=null?money(v):"–")}${ro("Safety",VERDICT[c.verdict])}</div>
@@ -394,7 +401,7 @@ function readHTML(c){const r=readOf(c),k=TR[c.mint];
 function paintRead(c){document.querySelectorAll(`.readbox[data-mint="${CSS.escape(c.mint)}"]`).forEach(el=>{el.innerHTML=readHTML(c)})}
 
 /* how long coins like this ran, from Early Bird's own record, plus a simple exit plan in this coin's numbers */
-function timingHTML(c){const R=((S.hist&&S.hist.rows)||[]).filter(x=>!x.h),K=[["c1","1 hour"],["c3","3 hours"],["c6","6 hours"],["c12","12 hours"],["c24","1 day"]];
+function timingHTML(c){const R=((S.hist&&S.hist.rows)||[]).filter(x=>!x.h&&!x.sv),K=[["c1","1 hour"],["c3","3 hours"],["c6","6 hours"],["c12","12 hours"],["c24","1 day"]];
  let M=R.filter(x=>x.v===c.verdict&&Math.abs(x.sc-c.score)<=12),lab=`${VERDICT[c.verdict]} coins with an Early score near ${c.score}`;
  if(M.filter(x=>x.c1).length<15){M=R.filter(x=>x.v===c.verdict);lab=`${VERDICT[c.verdict]} coins`}
  const rows=K.map(([k,l])=>{const st=stats(M,k);return st&&st.n>=10?Object.assign({k,l},st):null}).filter(Boolean);
@@ -475,7 +482,7 @@ function drawSheet(c,loading){const el=$("#coinsheet");
 async function openCoin(mint){const c=COINS.get(mint)||null;S.open=mint;drawSheet(c,true);const d=$("#coin");if(!d.open)d.showModal();
  try{const full=c?await EB.enrich(get,c):await EB.checkOne(get,mint);   // a coin from a list keeps its data and gets the extra checks
   if(full){COINS.set(full.mint,full);
-   for(const m of ["fresh","hot"]){const r=S[m];if(r){const i=r.coins.findIndex(x=>x.mint===full.mint);if(i>=0)r.coins[i]=full}}
+   for(const m of LISTS){const r=S[m];if(r){const i=r.coins.findIndex(x=>x.mint===full.mint);if(i>=0)r.coins[i]=full}}
    if(S.check.c&&S.check.c.mint===full.mint)S.check.c=full}
   if(S.open===mint)drawSheet(full||c,false)}catch(e){if(S.open===mint)drawSheet(c,false)}}
 
@@ -597,25 +604,30 @@ function apNorm(A){if(!A)return null;if(A.v===2&&A.strats)return A;
  if(A.v===1)return{v:2,started:A.started,runs:A.runs,updated:A.updated,strats:{coach:{name:"Coach's buy signals",start:A.start,cash:A.cash,pos:A.pos||{},hist:A.hist||[],log:A.log||[],eq:A.eq||[],value:A.value}}};return null}
 function apHTML(){const N=apNorm(AP);
  if(!N)return `<div class="robo"><div class="rt"><div><b>Practice money</b><small>Fake money that trades by itself, around the clock</small></div></div><p class="fine" style="margin-top:10px">${apErr?"It hasn't made its first run yet. It runs about every 5 minutes on GitHub.":"Loading…"}</p></div>`;
- const late=Date.now()-N.updated>25*60e3,head={out:"Get out",tp:"Take profit",watch:"Watch closely",hold:"Hold"},K=["coach","passed","random"].filter(k=>N.strats[k]);
+ const late=Date.now()-N.updated>25*60e3,head={out:"Get out",tp:"Take profit",watch:"Watch closely",hold:"Hold"},K=["coach","passed","random","holder"].filter(k=>N.strats[k]);
  const sum=S=>{const v=S.value!=null?S.value:S.cash,H=S.hist||[];return{v,pl:v-S.start,open:Object.keys(S.pos||{}).length,sold:H.length,won:H.filter(x=>x.out>x.in).length}};
  const act=(x,tag)=>(tag?`<i class="aptag">${esc(tag)}</i> `:"")+(x.a==="buy"?`Bought $${x.usd} of <b>$${esc(x.s)}</b>. ${esc(x.why||"")}`:`${x.a==="half"?"Sold half of":"Sold"} <b>$${esc(x.s)}</b> for ${fm2(x.usd)} <em class="${cls(x.pl)}">${x.pl>=0?"+":"-"}${fm2(Math.abs(x.pl))}</em>. ${esc(x.why||"")}`);
  const C=N.strats.coach,cs=sum(C),P=Object.values(C.pos||{});
- let h=`<div class="robo ap"><div class="rt"><div><b>Practice money</b><small>Three fake-money players trade by themselves, around the clock</small></div><span class="apst ${late?"late":""}">${late?"Running late":"Running"}</span></div>
+ let h=`<div class="robo ap"><div class="rt"><div><b>Practice money</b><small>${K.length===4?"Four":"Three"} fake-money players trade by themselves, around the clock</small></div><span class="apst ${late?"late":""}">${late?"Running late":"Running"}</span></div>
   <p class="apm" style="margin:6px 0 10px">Each player started with <b>${fm2(C.start)}</b> of fake money. The big number is how much it has <b>earned or lost so far</b>.</p>
   <div class="apcmp">${K.map(k=>{const S=N.strats[k],x=sum(S),H=S.hist||[],locked=H.reduce((t,y)=>t+(y.out-y.in),0),paper=x.pl-locked,sg=v=>(v>=0?"+":"-")+fm2(Math.abs(v));
-   const nm={coach:["Coach","buys only its buy signals"],passed:["Every safe coin","buys every coin that passes the scam checks"],random:["Random coins","buys at random, to compare against luck"]}[k]||[S.name,""];
+   const nm={coach:["Coach","buys only its buy signals"],passed:["Every safe coin","buys every coin that passes the scam checks"],random:["Random coins","buys at random, to compare against luck"],holder:["Holder","buys Survivors, holds up to 30 days"]}[k]||[S.name,""];
    return `<div class="apk ${k==="coach"?"me":""}" style="flex-wrap:wrap"><span style="flex:1;min-width:0"><b>${esc(nm[0])}</b><small>${esc(nm[1])}</small></span><span style="text-align:right;flex:none;margin-left:12px"><b class="${cls(x.pl)}">${sg(x.pl)}</b><small>${pct(x.pl/S.start*100,1)} · now worth ${fm2(x.v)}</small></span>
     <small style="flex-basis:100%;margin-top:6px;color:var(--haze);line-height:1.45">Locked in: <b class="${cls(locked)}">${sg(locked)}</b> from ${x.sold} sale${x.sold===1?"":"s"}${x.sold?` (${x.won} won, ${x.sold-x.won} lost)`:""} · On paper: <b class="${cls(paper)}">${sg(paper)}</b> on ${x.open} coin${x.open===1?"":"s"} it still holds</small></div>`}).join("")}</div>`;
- const ok=K.length===3&&K.every(k=>(N.strats[k].hist||[]).length>=10);
+ const ok=["coach","passed","random"].every(k=>N.strats[k]&&(N.strats[k].hist||[]).length>=10);
  if(ok){const v=k=>sum(N.strats[k]).pl,c=v("coach"),pa=v("passed"),ra=v("random");
   h+=`<p class="apver">${c>pa&&c>ra?"So far the coach's signals are ahead of both: <b>picking matters more than luck so far.</b>":c<ra?"So far the coach is behind random coins, so <b>its signals aren't helping yet.</b>":"So far the coach is ahead of random but not of every passed coin, so <b>the scam checks are doing most of the work.</b>"} Early days: luck still plays a big part.</p>`}
  h+=`<h4 class="aph">The coach</h4>${apSpark(C.eq,C.start)}<p class="apm">${cs.open} coins held · ${cs.sold} sold · last checked ${ago(N.updated)} · run ${N.runs||0}${N.started?` · started ${new Date(N.started).toLocaleDateString([],{month:"short",day:"numeric"})}`:""}</p>`;
- h+=P.length?`<div class="appos">${P.map(o=>{const px=o.last&&o.last.px,val=px?o.qty*px:null,d=val!=null?val-o.cost:null;
-   return `<button class="appr" data-coin="${esc(o.m)}">${avatar({icon:o.icon,sym:o.s})}<span class="crn"><b>${esc(o.n||o.s)}</b><small>${o.last?`${o.last.x!=null?o.last.x.toFixed(2)+"x · ":""}${head[o.last.k]||""}${o.last.r&&o.last.k!=="hold"?": "+esc(o.last.r):""}`:"Just bought"}${o.half?" · half sold":""}</small></span><span class="cpl ${cls(d)}" style="font-size:19px">${d==null?"–":(d>=0?"+":"-")+fm2(Math.abs(d))}</span></button>`}).join("")}</div>`:`<p class="fine">The coach isn't holding anything right now. It buys when it gives a buy signal.</p>`;
- const L=K.flatMap(k=>(N.strats[k].log||[]).slice(0,8).map(x=>({x,tag:k==="coach"?"":k==="passed"?"Passed":"Random"}))).sort((a,b)=>b.x.t-a.x.t).slice(0,10);
+ const posList=(P,hold)=>`<div class="appos">${P.map(o=>{const px=o.last&&o.last.px,val=px?o.qty*px:null,d=val!=null?val-o.cost:null;
+   return `<button class="appr" data-coin="${esc(o.m)}">${avatar({icon:o.icon,sym:o.s})}<span class="crn"><b>${esc(o.n||o.s)}</b><small>${o.last?`${o.last.x!=null?o.last.x.toFixed(2)+"x · ":""}${hold&&o.last.k==="watch"?"Riding it":head[o.last.k]||""}${o.last.r&&o.last.k!=="hold"&&!(hold&&o.last.k==="watch")?": "+esc(o.last.r):""}`:"Just bought"}${o.half?" · half sold":""}${hold?` · ${ageTxt((Date.now()-o.t)/36e5)} held`:""}</small></span><span class="cpl ${cls(d)}" style="font-size:19px">${d==null?"–":(d>=0?"+":"-")+fm2(Math.abs(d))}</span></button>`}).join("")}</div>`;
+ h+=P.length?posList(P):`<p class="fine">The coach isn't holding anything right now. It buys when it gives a buy signal.</p>`;
+ const HO=N.strats.holder;
+ if(HO){const hs=sum(HO),HP=Object.values(HO.pos||{}).sort((a,b)=>b.t-a.t);
+  h+=`<h4 class="aph">The holder</h4>${apSpark(HO.eq,HO.start)}<p class="apm">${hs.open} coin${hs.open===1?"":"s"} held · ${hs.sold} sold · $40 a coin, at most 6 new coins a day</p>`;
+  h+=HP.length?posList(HP,true):`<p class="fine">The holder ${hs.sold?"isn't holding anything right now":"hasn't bought anything yet"}. About once an hour it looks at the Survivors list and buys the strongest coin with a hold signal.</p>`}
+ const L=K.flatMap(k=>(N.strats[k].log||[]).slice(0,8).map(x=>({x,tag:k==="coach"?"":k==="passed"?"Passed":k==="holder"?"Holder":"Random"}))).sort((a,b)=>b.x.t-a.x.t).slice(0,10);
  if(L.length)h+=`<h4 class="aph">What they did</h4><ul class="aplog">${L.map(({x,tag})=>`<li><span>${ago(x.t)}</span><p>${act(x,tag)}</p></li>`).join("")}</ul>`;
- return h+`<p class="fine">Each has its own fake $1,000 and puts $10 on a coin, up to 25 at once. The coach buys its buy signals, the second buys every coin that passes the scam checks, and the third buys random coins. All three sell the same way: half at 2x, the rest at 5x, out on a Get out call or after a day. Every trade pays about 1% plus price impact, like a real one would. No wallet or real money is involved.</p></div>`}
+ return h+`<p class="fine">Each has its own fake $1,000, up to 25 coins at once. The coach buys its buy signals, the second buys every coin that passes the scam checks, and the third buys random coins, $10 each. Those three sell the same way: half at 2x, the rest at 5x, out on a Get out call or after a day. The holder puts $40 on coins from the Survivors list and holds up to 30 days, selling only if a coin halves, its pool gets pulled or the creator dumps, or, once it has hit 3x, if it falls 40% from its best. Every trade pays about 1% plus price impact, and a sale can never pay more than the pool holds, like a real one. No wallet or real money is involved.</p></div>`}
 function coachView(){const H=holdings().filter(h=>h.kind!=="robo"),L=buyList(),busy=S.busy.fresh||S.busy.hot;
  let h=`<h2 class="pt" style="margin-top:18px">Coach</h2><p class="sub">What to look at, and what to do with what you hold, from fixed rules on the live numbers. Signals, not promises: most meme coins still lose. Prove it with practice money first.</p>`;
  if(H.length){const order={out:0,tp:1,watch:2,hold:3,wait:4};h+=`<h3 class="h3">Your coins</h3>${H.map(h2=>[h2,callOf(h2)]).sort((a,b)=>order[a[1].k]-order[b[1].k]).map(([h2])=>callCard(h2)).join("")}`}
@@ -638,6 +650,11 @@ function coachLine(c){const H=holdings().filter(h=>h.m===c.mint&&h.kind!=="robo"
  if(H.length){const cl=callOf(H[0]);return `<div class="cline k-${cl.k}"><span>Coach</span><b>${cl.head}</b><small>${esc(cl.why[0]||"")}</small></div>`}
  const sg=sigOf(c);if(sg.lvl)return `<div class="cline k-buy"><span>Coach</span><b>Buy signal · ${sg.lvl===2?"Strong":"Okay"}</b><small>${esc(sg.why.slice(0,2).join(". "))}.</small></div>`;
  return `<div class="cline k-none"><span>Coach</span><b>No buy signal</b><small>${esc(sg.no||"")}.</small></div>`}
+
+/* the holder's take, for coins that have lasted at least 6 hours: would it buy this to hold? */
+function holdLine(c){if(c.ageH==null||c.ageH<6)return"";const s=c.surv||EB.survivor(c);
+ return s.lvl?`<div class="cline k-buy"><span>Holder</span><b>Hold signal · ${s.lvl===2?"Strong":"Okay"}</b><small>${esc(s.why.slice(0,3).join(". "))}.</small></div>`
+  :`<div class="cline k-none"><span>Holder</span><b>No hold signal</b><small>${esc(s.no||"")}.</small></div>`}
 
 /* ---------- Watch: watchlist, buys and the weekly limit ---------- */
 function weekStart(){const d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-((d.getDay()+6)%7));return d.getTime()}
@@ -702,7 +719,7 @@ function stack(st){if(!st)return"";const dbl=st.dbl,up=st.up-st.dbl,dead=st.dead
  return `<div class="stack"><i class="s-dbl" style="width:${w(dbl)}"></i><i class="s-up" style="width:${w(up)}"></i><i class="s-dn" style="width:${w(dn)}"></i><i class="s-dead" style="width:${w(dead)}"></i></div>
  <div class="vnums"><span><b>${Math.round(st.up*100)}%</b> up</span><span><b>${Math.round(st.dbl*100)}%</b> doubled</span><span><b>${Math.round(st.dead*100)}%</b> died</span><span>Typical <b class="${cls(st.med)}">${pct(st.med*100)}</b></span></div>`}
 function recordView(){const H=S.hist;let h=`<h2 class="pt" style="margin-top:18px">The record</h2><p class="sub">Every hour Early Bird writes down what the Fresh list showed, Sketchy coins included, then checks each coin again 1, 3, 6, 12 and 24 hours later. This is how each kind of coin really did.</p>`;
- if(!H)return h+skeleton(3);const R=(H.rows||[]).filter(x=>!x.h);
+ if(!H)return h+skeleton(3);const R=(H.rows||[]).filter(x=>!x.h&&!x.sv);
  const n24=R.filter(x=>x.c24).length,n6=R.filter(x=>x.c6).length,k=n24>=30?"c24":n6>=30?"c6":"c1",lab={c24:"24 hours",c6:"6 hours",c1:"1 hour"}[k];
  h+=`<div class="rbig"><b>${R.length.toLocaleString()}</b><span>coins on record${H.updated?`, updated ${ago(H.updated)}`:""}. ${n24} have their 24-hour result.${n24<30?" The full picture builds over the first few days.":""}</span></div>`;
  const G=[["passed","Passed"],["caution","Caution"],["sketchy","Sketchy"]].map(([v,l])=>[l,v,stats(R.filter(x=>x.v===v),k)]);
@@ -717,9 +734,18 @@ function recordView(){const H=S.hist;let h=`<h2 class="pt" style="margin-top:18p
   <p class="fine">Passed and Caution coins, ${lab} later. ${top.up>rest.up+.05?"So far the higher scores have done better.":top.up<rest.up-.05?"So far the higher scores have done worse, so don't lean on the score.":"So far the score hasn't made much difference."} With this few coins, luck plays a big part.</p>`}
  const B=R.filter(x=>x[k]&&x.v!=="sketchy").sort((a,b)=>b[k][0]-a[k][0]);
  if(B.length>=5)h+=`<h3 class="h3">Best and worst calls</h3>${[...B.slice(0,4),...B.slice(-3).reverse()].map(x=>`<div class="call v-${x.v}"><span><b>$${esc(x.s)}</b><small>${VERDICT[x.v]}, score ${x.sc}</small></span><span class="cv ${cls(x[k][0])}">${pct(x[k][0]*100)}</span></div>`).join("")}`;
- h+=insightsHTML();
+ h+=insightsHTML()+survRecordHTML();
  h+=`<p class="fine" style="margin-top:14px">Prices are from DEX Screener at each check. Past results don't promise future ones, and meme coins can swing either way in minutes.</p>`;
  return h}
+/* the Survivors list, followed for up to 30 days: the coins with a hold signal against the rest of the list */
+function survRecordHTML(){const I=S.ins&&S.ins.surv;let h=`<h3 class="h3">Survivors, held longer</h3>`;
+ const K=[["c24","1 day"],["c72","3 days"],["c168","7 days"],["c720","30 days"]].filter(([k])=>I&&I[k]&&I[k].sig&&I[k].sig.n>=3);
+ if(!K.length)return h+`<p class="fine">Every hour Early Bird also writes down coins on the Survivors list and checks them again 1, 3, 7 and 30 days later, to see whether buying and holding them works. The first results show up here after a day, and the 30-day ones after a month.</p>`;
+ for(const[k,l]of K){const sg=I[k].sig,rs=I[k].rest;
+  h+=`<div class="vbar" style="--vc:var(--pass)"><div class="vt"><b>Hold signal, ${l} later</b><span>${sg.n} coins</span></div>${stack(sg)}</div>`;
+  if(rs&&rs.n)h+=`<div class="vbar" style="--vc:var(--haze)"><div class="vt"><b>The rest of the list, ${l} later</b><span>${rs.n} coins</span></div>${stack(rs)}</div>`}
+ return h+`<p class="fine">Price when it was first seen on the Survivors list against the price at each check. With this few coins, luck plays a big part.</p>`}
+
 /* what the record says predicts a dead coin, from insights.json (worked out every hour from up to 60 days of finished coins) */
 const FLAGN={bots:"Mostly bot trading",creator:"Creator launches lots of coins","creator!":"Creator has rugged before",dev:"Creator holds a big bag","dev!":"Creator holds a huge bag",
  few:"Very few holders",freeze:"Creator can freeze wallets","freeze!":"Creator can freeze wallets",holders:"A few wallets hold a lot","holders!":"A few wallets hold most of it",
@@ -765,7 +791,7 @@ function drawSet(){const pill=(k,v,l)=>`<button class="pill ${SET[k]===v?"on":""
 
 /* ---------- drawing ---------- */
 function stampText(){const el=$("#stamp");if(!el)return;const t=S.tab,r=S[t],p=$("#pulse");if(p)p.classList.toggle("busy",!!S.busy[t]);
- el.innerHTML=(t==="fresh"||t==="hot")?(S.busy[t]&&!r?"Scanning Solana…":r?`${S.busy[t]?"Scanning":"Scanned"} <b>${ago(r.at)}</b>${SET.auto?", again every minute":""}`:"")
+ el.innerHTML=LISTS.includes(t)?(S.busy[t]&&!r?"Scanning Solana…":r?`${S.busy[t]?"Scanning":"Scanned"} <b>${ago(r.at)}</b>${SET.auto?(t==="survivors"?", again every few minutes":", again every minute"):""}`:"")
   :t==="watch"?(S.qAt?`Prices <b>${ago(S.qAt)}</b>`:"Loading prices…"):t==="record"?(S.hist&&S.hist.updated?`Record updated <b>${ago(S.hist.updated)}</b>`:"Early Bird's track record")
   :t==="coach"?(coachAt?`Calls checked <b>${ago(coachAt)}</b>${COACH.auto?", coach is trading practice money":", every 30 seconds"}`:"Checking…"):"Paste any coin to check it"}
 function markTabs(){const al=hasAlerts();document.querySelectorAll(".dock button").forEach(b=>{b.classList.toggle("on",b.dataset.tab===S.tab);b.setAttribute("aria-selected",b.dataset.tab===S.tab);
@@ -773,15 +799,15 @@ function markTabs(){const al=hasAlerts();document.querySelectorAll(".dock button
 function draw(){const v=$("#view"),a=document.activeElement,typing=a&&a.id==="ckq",sel=typing?[a.selectionStart,a.selectionEnd]:null;
  if(typing)S.check.q=a.value;
  markTabs();
- v.innerHTML=S.tab==="fresh"||S.tab==="hot"?listView(S.tab):S.tab==="coach"?coachView():S.tab==="check"?checkView():S.tab==="watch"?watchView():recordView();
+ v.innerHTML=LISTS.includes(S.tab)?listView(S.tab):S.tab==="coach"?coachView():S.tab==="check"?checkView():S.tab==="watch"?watchView():recordView();
  stampText();if(S.tab==="check"&&S.check.c){loadChart(S.check.c);loadTrades(S.check.c);loadReport(S.check.c)}
  if(typing){const i=$("#ckq");if(i){i.focus();try{i.setSelectionRange(sel[0],sel[1])}catch(e){}}}}
 function drawIf(tab){if(S.tab===tab)draw();else{stampText();markTabs()}}
 function go(tab){S.tab=tab;LS.set("eb_tab",tab);draw();window.scrollTo(0,0);tick(true)}
 function tick(now){if(document.hidden)return;const t=S.tab;
- if(t==="fresh"||t==="hot"){const r=S[t],age=r?Date.now()-r.at:1e12;
+ if(LISTS.includes(t)){const r=S[t],age=r?Date.now()-r.at:1e12;
   // refresh by itself while you're near the top of the list; scrolled down, it waits so the list doesn't jump under your finger
-  if(!r||(SET.auto&&age>(t==="fresh"?60000:120000)&&window.scrollY<200&&!document.querySelector("dialog[open]")))refresh(t)}
+  if(!r||(SET.auto&&age>(t==="fresh"?60000:t==="hot"?120000:300000)&&window.scrollY<200&&!document.querySelector("dialog[open]")))refresh(t)}
  if(t==="watch"&&(now||Date.now()-S.qAt>30000))loadQuotes();
  if(S.open&&$("#coin").open){const c=COINS.get(S.open);if(c)loadTrades(c)}else if(t==="check"&&S.check.c)loadTrades(S.check.c);
  if(t==="record"&&(!S.hist||now))loadHist();
@@ -800,7 +826,7 @@ document.addEventListener("click",async e=>{const b=e.target.closest("button,[da
  if(d.ctab){S.ctab=d.ctab;const sh=b.closest("#coinsheet,.panel");if(sh){sh.querySelectorAll(".ctab").forEach(x=>{const on=x.dataset.ctab===d.ctab;x.classList.toggle("on",on);x.setAttribute("aria-selected",on)});sh.querySelectorAll(".cpane").forEach(x=>{x.hidden=x.dataset.pane!==d.ctab});
    const tb=sh.querySelector(".ctabs");if(tb&&tb.getBoundingClientRect().top<0)tb.scrollIntoView({block:"start"})}return}
  if(d.tf){S.tf=d.tf;const bx=b.closest(".chartbox"),c=bx&&COINS.get(bx.dataset.mint);if(c)loadChart(c);return}
- if(d.sort){S.sort=d.sort;LS.set("eb_sort",S.sort);draw();return}
+ if(d.sort){if(S.tab==="survivors")S.sortS=d.sort;else{S.sort=d.sort;LS.set("eb_sort",S.sort)}draw();return}
  if(d.lg){const[m,g]=d.lg.split("|"),o=offOf(m);o.has(g)?o.delete(g):o.add(g);draw();return}
  if(d.copy){try{await navigator.clipboard.writeText(d.copy);toast("Address copied")}catch(err){toast("Couldn't copy. Press and hold the address instead.")}return}
  if(d.watch){toggleWatch(d.watch);const c=COINS.get(d.watch);if(c&&$("#coin").open)drawSheet(c,false);draw();return}
@@ -833,7 +859,7 @@ document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target&&e.target.i
 document.addEventListener("input",e=>{const cc=e.target&&e.target.dataset&&e.target.dataset.cc;
  if(cc){SET.custom=Object.assign({},PRESETS.studio,SET.custom||{},{[cc]:e.target.value});LS.set("eb_set",SET);applyTheme();return}if(e.target&&e.target.id==="ckq")S.check.q=e.target.value;if(e.target&&e.target.id==="limin"){LIMIT=Math.max(0,parseFloat(e.target.value)||0);LS.set("eb_limit",LIMIT);if(S.tab==="watch")draw()}});
 $("#openSet").addEventListener("click",()=>{drawSet();$("#set").showModal()});
-$("#refresh").addEventListener("click",()=>{const t=S.tab;if(t==="fresh"||t==="hot")refresh(t,true);else if(t==="watch")loadQuotes();else if(t==="record")loadHist();else doCheck()});
+$("#refresh").addEventListener("click",()=>{const t=S.tab;if(LISTS.includes(t))refresh(t,true);else if(t==="watch")loadQuotes();else if(t==="record")loadHist();else doCheck()});
 for(const id of ["coin","set","buy"]){const dl=$("#"+id);dl.addEventListener("click",e=>{if(e.target===dl)dl.close()});dl.addEventListener("close",()=>{if(id==="coin"){S.open=null;draw()}})}
 
 /* ---------- start ---------- */

@@ -176,6 +176,51 @@ function buySignal(c){const no=t=>({lvl:0,why:[],no:t});if(!c)return no("No data
  if(!lvl)return{lvl:0,why,no:"Buying isn't strong enough yet"};
  return soft?{lvl:1,why,warn:W[0].t}:{lvl,why}}
 
+/* ---------- the Holder's pick: a coin that made it through its first hours and is still growing ----------
+   For buying and holding for days or weeks, not flipping. Early Bird's record showed coins found under an hour old were
+   usually dead within a day, while coins that had already lasted 6 to 24 hours did far better. Still meme coins: most fade.
+   Returns {lvl:2 strong, 1 okay, 0 none, why:[reasons], no:"why not"} */
+function survivor(c){const no=t=>({lvl:0,why:[],no:t});if(!c)return no("No data");
+ const W=(c.checks||[]).filter(f=>f.level==="warn"),soft=c.verdict==="caution"&&W.length===1&&["socials","lp"].includes(W[0].k);
+ if(c.verdict!=="passed"&&!soft)return no(c.verdict==="sketchy"?"It failed the scam checks":c.verdict==="caution"?`Scam-check warning: ${(W[0]&&W[0].t||"see Safety").toLowerCase()}${W.length>1?` and ${W.length-1} more`:""}`:"It hasn't been fully checked");
+ const a=c.ageH;if(a==null)return no("Couldn't tell how old it is");
+ if(a<6)return no("Under 6 hours old: most coins die in their first hours");
+ if(a>24*21)return no("Over 3 weeks old");
+ if(c.curve)return no("Still on its launch curve after 6 hours, so it hasn't caught on");
+ if((c.liq||0)<2e4)return no("The pool is too small to hold through dips");
+ const d=c.st&&c.st.h24;if(!d)return no("Not enough trading data");
+ const bv=num(d.buyVolume)||0,sv=num(d.sellVolume)||0,tv=bv+sv,r=tv?bv/tv:0,h24=chg(c,"h24"),h6=chg(c,"h6"),hc=num(d.holderChange);
+ if(tv<25000)return no("Too little trading in the last day");
+ if(h24!=null&&h24<=-50)return no(`Down ${Math.round(-h24)}% today`);
+ if(h24!=null&&h24>=300)return no(`Already up ${Math.round(h24)}% today, too late to chase`);
+ if(c.top10!=null&&c.top10>35)return no(`The top 10 wallets hold ${Math.round(c.top10)}%, enough to dump on everyone`);
+ if(c.devPct!=null&&c.devPct>10)return no(`The creator still holds ${Math.round(c.devPct)}%`);
+ if(c.organic!=null&&c.organic<25)return no("The trading is mostly bots");
+ if(c.holders!=null&&c.holders<300)return no(`Only ${c.holders} holders`);
+ if(hc!=null&&hc<0)return no(`Losing holders (${hc.toFixed(0)}% today)`);
+ if(r<.45)return no("More money selling than buying today");
+ const why=[];
+ if(hc!=null&&hc>=5)why.push(`Holders up ${hc.toFixed(0)}% in a day`);
+ if(r>=.52)why.push(`${Math.round(r*100)}% of today's money was buying`);
+ if(h24!=null&&h24>=0&&(h6==null||h6>-20))why.push(h24>=10?`Up ${Math.round(h24)}% today without going vertical`:"Holding its price today");
+ if(c.organic!=null&&c.organic>=50)why.push("Mostly real traders, not bots");
+ if(c.mcap&&c.liq/c.mcap>=.08)why.push(`The pool is ${Math.round(c.liq/c.mcap*100)}% of its value, so it can take a sell`);
+ if(c.holders!=null&&c.holders>=1000)why.push(`${c.holders.toLocaleString()} holders`);
+ const n=why.length,lvl=n>=4?2:n>=3?1:0;why.unshift(`Still going after ${ageTxt(a)}`);
+ if(!lvl)return{lvl:0,why,no:"Not growing strongly enough yet"};
+ return soft?{lvl:1,why,warn:W[0].t}:{lvl,why}}
+// the Holder's calls on what it holds: it means to hold for weeks, so it ignores the day-to-day swings the 24-hour players react to.
+// peak = the best multiple it has seen on this coin
+function exitHold(o){const{x,peak,liq,lq0,curve,creatorSold,ageH,gone}=o;
+ if(gone)return{k:"out",r:"Its pool is gone"};
+ if(lq0&&liq!=null&&!curve&&liq<lq0*.5)return{k:"out",r:"Pool down by half"};
+ if(creatorSold)return{k:"out",r:"Creator selling"};
+ if(x!=null&&x<=.5)return{k:"out",r:"Down 50%"};
+ if(peak>=3&&x!=null&&x<=peak*.6)return{k:"out",r:`Fell 40% from its ${peak.toFixed(1)}x peak`};
+ if(ageH>720)return{k:"out",r:"30 days passed"};
+ if(peak>=3)return{k:"watch",r:`Riding it: out if it falls 40% from ${peak.toFixed(1)}x`};
+ return{k:"hold",r:"Holding"}}
+
 /* ---------- the coach's calls on coins it holds (the 24/7 autopilot uses these; the site's coach makes the same calls) ---------- */
 // how hard buyers (+) or sellers (-) are pushing right now, from the last 30 minutes of trades and the last hour of stats
 function flowNet(c,trades,creator,now){now=now||Date.now();const s1=c.st&&c.st.h1;let net=0,creatorSold=false;
@@ -222,8 +267,12 @@ const sellOut=(usd,liq,curve)=>{if(!(usd>0))return 0;const half=(curve||!liq?1e4
 const FEEDS={
  fresh:[["dxProfiles",`${DX}/token-profiles/latest/v1`],["dxBoosts",`${DX}/token-boosts/latest/v1`],["dxCto",`${DX}/community-takeovers/latest/v1`],
   ["gtNew",`${GT}/networks/solana/new_pools?include=base_token`],["jupTrend",`${JUP}/toptrending/5m?limit=40`]],
- hot:[["jupTrend",`${JUP}/toptrending/1h?limit=50`],["jupOrganic",`${JUP}/toporganicscore/1h?limit=50`],["dxBoostsTop",`${DX}/token-boosts/top/v1`]]};
-const DEFAULTS={fresh:{maxAgeH:24,minMcap:8e3,maxMcap:2e6,minLiq:5e3,rcLimit:30},hot:{maxAgeH:24*7,minMcap:5e4,maxMcap:5e7,minLiq:2e4,rcLimit:30}};
+ hot:[["jupTrend",`${JUP}/toptrending/1h?limit=50`],["jupOrganic",`${JUP}/toporganicscore/1h?limit=50`],["dxBoostsTop",`${DX}/token-boosts/top/v1`]],
+ // coins that have lasted a while and are still busy: the day's most real-trader, most traded and trending coins
+ survivors:[["jupOrganic",`${JUP}/toporganicscore/24h?limit=100`],["jupTraded",`${JUP}/toptraded/24h?limit=100`],["jupTrend",`${JUP}/toptrending/24h?limit=100`],
+  ["gtTrend",`${GT}/networks/solana/trending_pools?include=base_token&duration=24h`],["dxBoostsTop",`${DX}/token-boosts/top/v1`]]};
+const DEFAULTS={fresh:{maxAgeH:24,minMcap:8e3,maxMcap:2e6,minLiq:5e3,rcLimit:30},hot:{maxAgeH:24*7,minMcap:5e4,maxMcap:5e7,minLiq:2e4,rcLimit:30},
+ survivors:{minAgeH:6,maxAgeH:24*21,minMcap:5e4,maxMcap:2.5e7,minLiq:2e4,rcLimit:40}};
 
 async function rug(get,c){const d=await get(`${RC}/tokens/${c.mint}/report/summary`,600000);
  c.rc={score:num(d.score),norm:num(d.score_normalised),lp:num(d.lpLockedPct),
@@ -236,13 +285,13 @@ async function goplus(get,c){const d=await get(`${GP}?contract_addresses=${c.min
 function finish(c,now){c.ageH=c.created?Math.max(0,(now-c.created)/36e5):null;c.checks=checks(c);c.verdict=verdictOf(c.checks,c);c.score=score(c);return c}
 const VR={passed:0,caution:1,unchecked:2,sketchy:3};
 
-/* a list of coins: "fresh" (just launched) or "hot" (trending now), checked and scored */
-async function scan(get,mode,opt){mode=mode==="hot"?"hot":"fresh";const o=Object.assign({},DEFAULTS[mode],opt||{}),now=o.now||Date.now(),M=new Map(),src={},fails=[];
+/* a list of coins: "fresh" (just launched), "hot" (trending now) or "survivors" (lasted 6 hours to 3 weeks, still busy), checked and scored */
+async function scan(get,mode,opt){mode=FEEDS[mode]?mode:"fresh";const o=Object.assign({},DEFAULTS[mode],opt||{}),now=o.now||Date.now(),M=new Map(),src={},fails=[];
  const at=m=>{if(!m||SKIP.has(m)||!B58.test(m))return null;let c=M.get(m);if(!c){c={mint:m,src:[]};M.set(m,c)}return c};
  const fa=o.maxAge!=null?o.maxAge:mode==="fresh"?45000:90000;   // a pulled refresh asks for brand-new answers
  await Promise.all(FEEDS[mode].map(async([k,url])=>{try{const d=await get(url,fa);let n=0;
    if(k.startsWith("jup")){for(const j of d||[]){const c=at(j.id);if(c){fromJup(j,c);c.src.push(k);n++}}}
-   else if(k==="gtNew"){const inc=new Map((d.included||[]).map(t=>[t.id,t.attributes||{}]));
+   else if(k.startsWith("gt")){const inc=new Map((d.included||[]).map(t=>[t.id,t.attributes||{}]));
     for(const p of d.data||[]){const g=fromGt(p,inc),c=g&&at(g.mint);if(!c)continue;for(const kk in g)if(c[kk]==null&&g[kk]!=null)c[kk]=g[kk];c.src.push(k);n++}}
    else for(const x of d||[]){if(x.chainId!=="solana")continue;const c=at(x.tokenAddress);if(!c)continue;c.src.push(k);n++;
     if(k==="dxProfiles")c.profile=true;if(k==="dxCto")c.cto=true;if(k.startsWith("dxBoosts"))c.boost=Math.max(c.boost||0,num(x.totalAmount)||num(x.amount)||0);
@@ -253,7 +302,8 @@ async function scan(get,mode,opt){mode=mode==="hot"?"hot":"fresh";const o=Object
  const need=[...M.values()].filter(c=>!c.jup).map(c=>c.mint).slice(0,100);
  for(const part of chunk(need,50)){try{const d=await get(`${JUP}/search?query=${part.join(",")}`,Math.max(fa,20000));for(const j of d||[]){const c=M.get(j.id);if(c)fromJup(j,c)}}catch(e){fails.push("jupSearch")}}
  const age=c=>c.created?(now-c.created)/36e5:null;
- const fits=(c,f)=>{const a=age(c);if(a!=null&&a>o.maxAgeH*f)return false;if(c.mcap!=null&&(c.mcap>o.maxMcap*f||c.mcap<o.minMcap/f))return false;
+ const fits=(c,f)=>{const a=age(c);if(a!=null&&a>o.maxAgeH*f)return false;
+  if(o.minAgeH&&(a!=null?a<o.minAgeH/f:f===1))return false;if(c.mcap!=null&&(c.mcap>o.maxMcap*f||c.mcap<o.minMcap/f))return false;
   if(c.liq!=null&&c.liq<o.minLiq/f&&!c.curve)return false;return true};
  let C=[...M.values()].filter(c=>fits(c,2));
  // trading pools and socials from DEX Screener
@@ -265,6 +315,7 @@ async function scan(get,mode,opt){mode=mode==="hot"?"hot":"fresh";const o=Object
  await Promise.all(C.slice(0,o.rcLimit).map(c=>rug(get,c).catch(()=>{})));
  for(const c of C)finish(c,now);
  C.sort((a,b)=>VR[a.verdict]-VR[b.verdict]||b.score-a.score);
+ if(mode==="survivors"){for(const c of C)c.surv=survivor(c);C.sort((a,b)=>b.surv.lvl-a.surv.lvl||VR[a.verdict]-VR[b.verdict]||b.surv.why.length-a.surv.why.length)}
  return{coins:C,at:now,mode,src,fails:[...new Set(fails)]}}
 
 /* a coin already on a list, checked in full when you open it: adds GoPlus's checks for coins that can trap your money */
@@ -296,4 +347,4 @@ async function quotes(get,mints,maxAge){const out={},age=maxAge==null?20000:maxA
  failed+=Math.max(0,miss.length-40);
  return{q:out,failed}}
 
-return{makeGet,scan,checkOne,enrich,quotes,checks,verdictOf,score,buySignal,flowNet,exitCall,fillCost,sellOut,parseInput,money,ageTxt,txB,txS,chg,vol,VERDICT,DEFAULTS,FEEDS,B58}});
+return{makeGet,scan,checkOne,enrich,quotes,checks,verdictOf,score,buySignal,flowNet,exitCall,survivor,exitHold,fillCost,sellOut,parseInput,money,ageTxt,txB,txS,chg,vol,VERDICT,DEFAULTS,FEEDS,B58}});

@@ -293,7 +293,7 @@ sub{font-size:.72em;vertical-align:-.2em}
 /* ---------- the dock ---------- */
 .dock{position:fixed;left:0;right:0;bottom:0;z-index:40;display:flex;justify-content:center;
  padding:6px 8px calc(env(safe-area-inset-bottom,0px) + 6px);background:var(--dockbg);backdrop-filter:blur(18px) saturate(1.4);-webkit-backdrop-filter:blur(18px) saturate(1.4);border-top:1px solid var(--rim)}
-.dock .in{display:grid;grid-template-columns:repeat(6,1fr);width:100%;max-width:560px}
+.dock .in{display:grid;grid-template-columns:repeat(7,1fr);width:100%;max-width:560px}
 .dock button{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;border:0;background:none;padding:6px 0 4px;color:var(--dim);font:700 11px/1 var(--f);font-stretch:85%}
 .dock svg{width:24px;height:24px}
 .dock button.on{color:var(--paper)}
